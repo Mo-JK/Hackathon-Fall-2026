@@ -45,7 +45,8 @@ export function TruthGap({ s }: { s: Snapshot }) {
 
 export function MapView({ s }: { s: Snapshot }) {
   const levels = Array.from({ length: LEVELS }, (_, i) => i + 1)
-  const route = s.mod.route.route?.path ?? []
+  const showRoute = s.tab === 'routes' || s.tab === 'family' || s.tab === 'heat' || s.tab === 'care'
+  const route = (showRoute ? (s.tab === 'care' ? s.mod.clinicRoute : s.mod.route.route)?.path : undefined) ?? []
   const sos = new Set(s.mod.sos.map((x) => x.blockId))
   const heat = new Map(s.mod.heat.rows.map((r) => [r.blockId, r.risk]))
   const flooded = new Set<string>()

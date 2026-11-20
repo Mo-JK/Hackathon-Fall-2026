@@ -4,7 +4,9 @@ import type { Snapshot } from '../store'
 
 /** The address phones should open: the relay's LAN address if it is running, else this page. */
 export function joinUrl(s: Snapshot): string {
-  const base = s.relayUrls[0] ?? `${location.origin}${location.pathname}`
+  // Opened through a LAN address already? Phones can use the same one.
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+  const base = !local ? location.origin : (s.relayUrls[0] ?? `${location.origin}${location.pathname}`)
   return `${base.replace(/\/$/, '')}/?phone`
 }
 

@@ -30,17 +30,27 @@ const MIME = {
   '.ico': 'image/x-icon',
 }
 
+// Adapters phones can never reach (VMs, containers, WSL). Listed last, after the real ones.
+const VIRTUAL = /vmware|virtualbox|vbox|vethernet|hyper-v|wsl|docker|loopback|tailscale|zerotier|bluetooth/i
+
 function lanUrls() {
-  const out = []
-  for (const list of Object.values(networkInterfaces())) {
+  const found = []
+  for (const [name, list] of Object.entries(networkInterfaces())) {
     for (const a of list ?? []) {
-      if (a.family === 'IPv4' && !a.internal) out.push(`http://${a.address}:${PORT}`)
+      if (a.family === 'IPv4' && !a.internal) found.push({ name, url: `http://${a.address}:${PORT}`, address: a.address })
     }
   }
-  // Hotspot / home ranges first: they are the ones phones can reach.
-  return out.sort((a, b) => rank(a) - rank(b))
+  // Windows Mobile Hotspot (192.168.137.x) first, then Wi-Fi, then wired, then anything virtual.
+  const rank = (x) =>
+    x.address.startsWith('192.168.137.') ? 0 : VIRTUAL.test(x.name) ? 9 : /wi-?fi|wlan|wireless/i.test(x.name) ? 1 : /ethernet|eth|en\d/i.test(x.name) ? 2 : 3
+  return found.sort((a, b) => rank(a) - rank(b)).map((x) => x.url)
 }
-const rank = (u) => (/\/\/192\.168\.137\./.test(u) ? 0 : /\/\/192\.168\./.test(u) ? 1 : /\/\/10\./.test(u) ? 2 : 3)
+
+function adapterNames() {
+  return Object.entries(networkInterfaces()).flatMap(([name, list]) =>
+    (list ?? []).filter((a) => a.family === 'IPv4' && !a.internal).map((a) => `${a.address} (${name})`),
+  )
+}
 
 /** Store-and-forward buffer: signed user messages by id, oldest dropped first. */
 const stored = new Map()
@@ -100,7 +110,9 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('\n  Lantern relay running. No internet needed.\n')
   console.log(`  This laptop:  http://localhost:${PORT}`)
   const urls = lanUrls()
-  if (urls.length) for (const u of urls) console.log(`  Phones:       ${u}/?phone`)
-  else console.log('  Phones:       (no network found: turn on the laptop hotspot)')
+  if (urls.length) {
+    console.log(`  Phones:       ${urls[0]}/?phone   <- shown in the app's QR code`)
+    console.log(`  All adapters: ${adapterNames().join(', ')}`)
+  } else console.log('  Phones:       (no network found: turn on the laptop hotspot)')
   console.log('\n  Ctrl+C to stop (devices keep working and catch up when it is back).\n')
 })

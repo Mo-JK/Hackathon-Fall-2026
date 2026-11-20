@@ -1,78 +1,75 @@
 # Lantern: 3-minute pitch and rehearsal kit
 
-The in-app demo (**Run 3-min demo**) now lasts **135 seconds** (9 steps). The pitch wraps 30 seconds of setup before it and 15 seconds of close after it, which makes 3:00. Start the demo on the beat marked below and let the on-screen captions carry the structure; your voice adds the meaning.
+Setup before you speak: laptop on its own hotspot, `npm run demo` running, app open full screen, the **📱 Join** QR ready. The in-app demo runs **about 2 min 17 s** across 17 beats. Captions carry the structure; your voice adds the meaning.
 
-Numbers: the demo is deterministic, but quote them as approximate ("about 2,000 versus about 35"). Check them in your last run-through and say what the screen shows.
+Quote the numbers on screen, not the ones written here. The demo is deterministic, but read what you see.
 
 ---
 
 ## Script
 
-### 0:00 - 0:20 Hook (demo not started; show the map, all green)
-> Level 9. A mother, two kids, one room. At 3 a.m. the lights go out and the network goes with them. Her sister is four levels up. Neither knows if the other is alive. The Directorate's bulletin says: all systems normal.
+### 0:00–0:15 Hook (Slides, slide 1)
+> Level 9. 3 a.m. The lights go out, and the network goes with them. A mother, two kids, one room. Her sister is four levels up. The Directorate's bulletin says: all systems normal.
 
-### 0:20 - 0:30 Problem
-> Everything in the Hollow runs through one set of hands: the air, the grid, the network, and the numbers. When the numbers are wrong, nobody can see the failure coming. We built Lantern so the people living it can.
+### 0:15–0:25 Problem (slide 2 → slide 4, the QR)
+> One set of hands holds the air, the grid, the network and the numbers. When the numbers are wrong, nobody sees the failure coming. Lantern is a truth layer nobody can switch off or fake. **Take out your phones and scan this.** You're about to be part of the demo.
 
-**Click "Run 3-min demo" at 0:30.**
+Give the room ~10 seconds to scan. Then **back to the app** and click **▶ Run demo** at about 0:30.
 
-### 0:30 - 2:45 Live demo (captions run automatically; say these lines on the beats)
+### 0:30–2:47 Live demo (say these on the caption changes)
 
-| Time | Demo step | Say |
-|---|---|---|
-| 0:30 | 1. Level 9, Block 2 | "Same family. Official status: normal." |
-| 0:37 | 2. The numbers do not match | "Residents on Level 10 start reporting symptoms. Lantern compares each block with its own normal and flags a cluster. The Directorate says about 35 cases. Lantern estimates about 2,000." |
-| 0:59 | 3. Warnings before the lights go out | "Trends in power, water, heat and air give warnings with minutes to spare, and every one says *why*. Here, bad water on Level 11 is caught before it crosses the safe line." |
-| 1:21 | 4. The Directorate cuts the network | "Now they pull the plug. The official feed goes dark. Lantern doesn't notice: every report is signed and passed device to device." |
-| 1:35 | 5. An attack on the truth | "Their obvious move is to flood the system with lies. One device, a hundred fake outage reports, aimed at a healthy block. The map doesn't move. A device counts once, and a block only changes when independent evidence adds up." |
-| 1:49 | 6. Without the trust rule | "Turn the rule off and the same lie turns the block red. That rule is the product." |
-| 1:57 | 7. Fair shares of scarce power | "Today the upper levels are served first. At 55% supply, the worst-off block gets nothing. Lantern equalises coverage of need, weighted by depth and by live hazards: everyone gets 55%, and the people left under half drop from about 180,000 to zero. This is an auditable proposal, so a neighbourhood can show exactly who is being left out." |
-| 2:17 | 8. Finding family in a blackout | "And the mother? She taps *I'm OK* with a phrase the family agreed on. Her sister searches the same phrase and sees her: Level 9, block 2. No account, no name, only a hash and a block." |
-| 2:39 | 9. The truth, shared by the people living it | (stay quiet for the caption, 6 seconds) |
+| Beat | Say |
+|---|---|
+| 1 Two views | "Left: what the Directorate publishes. Right: what people and sensors report, signed and cross-checked." |
+| 2 Numbers | "The Directorate says about a dozen cases. Lantern estimates hundreds." |
+| 3 Warnings | "Warnings before the lights go out, each one saying why. Bad water caught before anyone drinks it." |
+| 4 Heat | "Heat plus humidity: where bodies can't cool themselves. Fans go to the most people at most risk." |
+| 5 Network cut | "Now they pull the plug. The feed dies. Your phones are still connected." (point at the LIVE bar if a judge checked in) |
+| 6 Sybil attack | "Their obvious move: flood the map with lies. Fifty fake identities. The block holds. New keys together count as half a stranger." |
+| 7 Rule off | "Turn the rule off and the lie wins. That rule is the product." |
+| 8 Fair share | "Upper levels first leaves the deepest blocks with nothing. We equalise coverage of need. The same rule runs everything that follows." |
+| 9 Flood | "Sewage floods Level 8. Gauges close tunnels, warn about the stairs below, and the route to the clinic re-plans live." |
+| 10–13 Flash | Let the captions run. One line: "Care, space, light, food: every one a small, tested engine on the same truth layer." |
+| 14 Family | "The mother taps I'm OK. Her sister already did. No account, no name: a stretched hash and a block." |
+| 15 Proof of Air | "Forty-one days of signed probe readings. Someone forges one to make the air look deadly. The chain breaks at exactly that entry." |
+| 16 The way up | "The honest copy comes back from other devices. Verified evidence chooses suits for the first wave, and the deepest level reaches the surface weeks sooner under the fair plan." |
+| 17 Close | (silent for the caption) |
 
-### 2:45 - 3:00 Close
-> Six of the fifteen problems, one idea: a picture of reality that no one can switch off and no one can easily fake. Real signing, real gossip, real trust rule, simulated sensors and radio, and we say so. The next step is the part that matters: calibrate it with real clinics and real sensors, and take it to the lower levels first.
-
----
-
-## Toughest judge questions
-
-**1. "Can't an attacker just create thousands of fake devices?"**
-Today, no: the trust rule stops one noisy device, not an attacker who controls many keys, and we say that openly. The next layer is device attestation and reputation, so new keys carry little weight until they agree with sensors and long-standing neighbours.
-
-**2. "If the Directorate is the adversary, what stops it from tracking people?"**
-Reports carry a block-level location and no name, and check-ins share only a hash of the family phrase. The honest gaps: a device key is a stable pseudonym, and a short phrase can be brute-forced, so production needs rotating keys and long phrases.
-
-**3. "Your mesh is just browser tabs. Is it real?"**
-The protocol is real: signed messages, dedupe, hop budgets, store-and-forward, tested. The radio is simulated; production would carry the same messages over Bluetooth, LoRa or Wi-Fi Direct, and nothing above the transport changes.
-
-**4. "Who enforces your fair share? The Directorate won't."**
-Nobody has to: it is deliberately advisory. Publishing "what was given" next to "what a fair rule would give" gives neighbourhoods evidence to negotiate, share informally and prove neglect. The rule is simple enough to argue about: equal coverage of need, adjusted for depth and live hazards.
-
-**5. "Is any of this real data?"**
-No, and the footer says so. The simulator is scripted to show the mechanics; the claim is that the engines behave correctly on it, which the tests check, not that the numbers describe a real population. Calibrating the reporting rate and hardship weights with real clinics is the first real-world step.
+### 2:47–3:00 Close
+> Fifteen problems, one idea: a picture of reality nobody can switch off and nobody can easily fake. Real signing, real gossip, real trust rule, simulated sensors and radio, and we say so. Next: calibrate with real clinics and sensors, and take it to the lowest levels first.
 
 ---
 
-## Rehearsal plan
+## Ten hard questions
 
-**Before you start**
-- [ ] Production-like run: `npm run build` then `npm run preview`, or `npm run dev`. Open the page, wait for "Generating device keys..." to disappear.
-- [ ] Reload the page (fresh state): network **online**, trust rule **on**, tab on Warnings.
-- [ ] Browser zoom so the map and the right panel are both readable from the back of the room.
-- [ ] Record a backup screen capture of one clean run.
+1. **"Can't an attacker make thousands of fake identities?"** They can make the keys, but every newcomer key together counts for at most half a person, and you need 3 to change the map. Trust comes from in-person vouching (3 per member, one level deep, capped per vouch tree) or from many hours of agreeing with sensors. That's slow and expensive to fake.
+2. **"The Directorate is the adversary. What stops it tracking people?"** Reports carry a block, never a name. Family check-ins share only a PBKDF2-stretched hash, and sensitive totals are hidden until 5 devices contribute. Honest gap: device keys are stable pseudonyms; production rotates them.
+3. **"Your mesh is browser tabs and a laptop. Is it real?"** The judges' phones in this room are real devices with their own keys, talking through a relay that can't forge anything. The radio is the simulated part. BLE, LoRa or Wi-Fi Direct plug in behind the same transport interface, and nothing above it changes.
+4. **"Who enforces your fair share?"** Nobody has to. It's an auditable proposal: "what was given" next to "what a fair rule would give" is evidence for negotiation and for showing neglect.
+5. **"Is any of this real data?"** No, and the footer says so. The claim is that the engines behave correctly, checked by 59 tests, not that the numbers describe a population.
+6. **"How does it spread with no internet?"** The app is a web page served from any relay laptop. Scan a QR code and you're in, with no store and no account. Each device carries messages for others.
+7. **"Why would the Directorate allow it?"** It wouldn't have to. Nothing here needs its network, its servers or its permission. The relay is a laptop; the probes sign their own data.
+8. **"Isn't 15 problems too shallow?"** Each is a real engine with tests, on one shared base: the same trust layer, the same fairness rule. The README maps every problem to a file and a test.
+9. **"Triage is medical advice. Liability?"** It's a checklist that sorts urgency and says plainly it's not a diagnosis. Only the outcome leaves the device. Clinicians must review the rules before real use.
+10. **"What would you build next?"** Real radio transport (LoRa), clinician-reviewed triage rules, key rotation, and calibrating the reporting rates with one real clinic on the lowest level.
+
+---
+
+## Rehearsal
+
+**Before you start:** follow [DEMO-CHECKLIST.md](DEMO-CHECKLIST.md). Reload the app so state is fresh (network online, trust on, 0/15).
 
 **Three run-throughs**
-1. **Read-through, no screen.** Time the script aloud: target 3:00, hard stop 3:10. If you run long, cut the sentences in rows 2 and 7; never cut rows 5 and 6.
-2. **With the demo, reading from the table.** Check you start the demo exactly at 0:30 and that your voice lands on each caption change.
-3. **Cold run, no notes**, with one teammate playing a judge who asks two questions from the list above.
+1. Read the script aloud with a timer: target 3:00, hard stop 3:10. If you run long, shorten beats 2, 8 and 10–13. Never cut beats 6, 7 or 15.
+2. With the demo running, check that your lines land on the caption changes.
+3. Cold, no notes, with a teammate on a phone joining at 0:20 and another playing a judge asking two of the questions above.
 
 **If something goes wrong**
 | Problem | Fix |
 |---|---|
-| Demo stalls or looks wrong | Click **Stop demo**, **Reset**, then **Start** at 8x and narrate the finished state; the end screen shows every effect. |
-| Numbers differ from your script | Say the numbers on screen. Never quote a number you aren't looking at. |
-| Page freezes | Reload; the pitch continues from the backup video. |
-| Question you can't answer | "We haven't tested that; here is what we'd do first." Then the plan. |
+| Phones can't load the page | Say "venue Wi-Fi blocks devices from talking to each other; here's a second tab as a phone," and open `/?phone` in a new tab. |
+| Demo stalls | **Stop demo**, **Reset**, **Run demo** again; or narrate from the backup video. |
+| Numbers differ from the script | Say the numbers on screen. |
+| A question you can't answer | "We haven't tested that; here's what we'd do first." |
 
-**Who does what (4 people)**: one speaks, one drives the keyboard, one watches the clock and signals at 1:30 and 2:30, one handles questions with the speaker.
+**Roles (4 people):** one speaks, one drives the laptop, one watches the clock (signals at 1:30 and 2:30) and helps judges scan, one handles Q&A alongside the speaker.

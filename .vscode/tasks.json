@@ -1,0 +1,52 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Lantern: install",
+      "type": "shell",
+      "command": "npm install",
+      "options": { "cwd": "${workspaceFolder}/lantern" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Lantern: dev (hot reload)",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/lantern" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "Lantern: demo (build + relay, phones can join)",
+      "type": "shell",
+      "command": "npm run demo",
+      "options": { "cwd": "${workspaceFolder}/lantern" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Lantern: relay only",
+      "type": "shell",
+      "command": "npm run relay",
+      "options": { "cwd": "${workspaceFolder}/lantern" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Lantern: test",
+      "type": "shell",
+      "command": "npm test",
+      "options": { "cwd": "${workspaceFolder}/lantern" },
+      "problemMatcher": [],
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "Lantern: check (typecheck + tests + build)",
+      "type": "shell",
+      "command": "npm run check",
+      "options": { "cwd": "${workspaceFolder}/lantern" },
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}

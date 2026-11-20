@@ -1,0 +1,5 @@
+{
+  "typescript.tsdk": "lantern/node_modules/typescript/lib",
+  "vitest.rootConfig": "lantern/vite.config.ts",
+  "files.exclude": { "**/node_modules": true, "**/dist": true }
+}

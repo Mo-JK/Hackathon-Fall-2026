@@ -2,7 +2,7 @@
 
 **Track:** Life Underground · **Goal:** 1st place ($2,000)
 
-Lantern is an offline-first, tamper-resistant truth layer for the Hollow. Every observation is signed, cross-checked against independent reports and passed device to device, so the Directorate can't switch it off or fake it. That shared truth feeds three engines covering all 15 problems in the brief:
+Lantern is a truth layer the Directorate can't switch off or fake. Every observation is signed, cross-checked against independent evidence and passed device to device. From that shared truth, three engines answer **all 15 problems** in the brief:
 
 | Engine | What it does | Problems |
 |---|---|---|
@@ -10,46 +10,63 @@ Lantern is an offline-first, tamper-resistant truth layer for the Hollow. Every 
 | **SHARE** | Split what is scarce, fairly | 2, 6, 10, 12, 14, 15 |
 | **REACH** | Find people and safe paths | 5, 7, 8, 10 |
 
+Judges scan a QR code and their own phones join the mesh live. The full details are in [lantern/README.md](lantern/README.md).
+
+## Quick start (teammates)
+
+You need [Node.js](https://nodejs.org) 20+ and Git.
+
+```bash
+git clone https://github.com/Mo-JK/Hackathon-Fall-2026.git
+cd Hackathon-Fall-2026/lantern
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 and click **▶ Run demo**.
+
+**In VS Code:** File → Open Folder → `Hackathon-Fall-2026`, then Terminal → Run Task… and pick:
+
+| Task | What it does |
+|---|---|
+| Lantern: install | `npm install` |
+| Lantern: dev (hot reload) | App at http://localhost:5173 for editing |
+| Lantern: demo (build + relay, phones can join) | The real demo at http://localhost:8787 |
+| Lantern: test | 59 tests |
+| Lantern: check | Typecheck + tests + build (run before pushing) |
+
 ## What's in this repo
 
 | Path | What it is |
 |---|---|
-| `lantern/` | The app: React + Vite + TypeScript PWA, Dexie, Vitest (added once finalized) |
-| `lantern-v2-prompt.md` | The build prompt for the v2 upgrade (all 15 problems) |
-| `lantern-plan.md` | Original plan: critique, MVP, architecture, algorithms |
-| `hollow-prompt.md` | The prompt kit that produced the plan |
-
-## Run it
-
-```bash
-cd lantern
-npm install
-npm run dev        # http://localhost:5173
-npm test           # engine + mesh tests
-```
-
-Open two tabs to see peer-to-peer sync. Click **Run 3-min demo** for the scripted story.
+| `lantern/` | The app: React + Vite + TypeScript PWA, relay, 59 tests |
+| `lantern/README.md` | How it works, all 15 problems mapped to code, real vs simulated, known limits |
+| `lantern/PITCH.md` | 3-minute script, 10 hard judge questions, rehearsal plan |
+| `lantern/DEMO-CHECKLIST.md` | Hotspot setup, firewall, pre-flight, fallbacks |
+| `lantern/PLAN-v2.md` | The v2 build plan |
+| `lantern-v2-prompt.md` | The prompt that drove the v2 build |
+| `lantern-plan.md`, `hollow-prompt.md` | Original plan and prompt kit |
 
 ## Team workflow
 
-1. Clone: `git clone https://github.com/Mo-JK/Hackathon-Fall-2026.git`
-2. Work on a branch named after you or your area: `git checkout -b mesh-relay`
-3. Before pushing, run `npm run typecheck` and `npm test` in `lantern/`. Both must pass.
-4. Open a pull request into `main`. One teammate reviews it, then merge.
+1. `git pull` before you start.
+2. Work on a branch: `git checkout -b your-name/what-you-are-doing`.
+3. Run **Lantern: check** before pushing. It must pass.
+4. Open a pull request into `main`; one teammate reviews, then merge.
 5. Never commit `node_modules/`, `dist/`, `.env` or real personal data.
 
 | Person | Area |
 |---|---|
-| A | Mesh + relay |
-| B | UI + design |
-| C | Engines |
-| D | Pitch, demo, QA |
+| A | Mesh + relay (`src/mesh`, `relay/`) |
+| B | UI + design (`src/components`, `styles.css`) |
+| C | Engines (`src/engine`, `src/modules`) |
+| D | Pitch, demo, QA (`PITCH.md`, `DEMO-CHECKLIST.md`) |
 
 ## Submission checklist
 
-- [ ] All tests, typecheck and build green on `main`
-- [ ] README in `lantern/` maps all 15 problems to code
+- [ ] `npm run check` green on `main`
+- [ ] Two real phones joined over the hotspot in a full rehearsal
 - [ ] `PITCH.md` rehearsed 3 times, under 3:00
 - [ ] Backup demo video recorded
-- [ ] Repo visibility switched to **Public** if the judges require a public link
+- [ ] Repo switched to **Public** if the judges need a public link
 - [ ] Submission form filled in with the repo link, video and team names

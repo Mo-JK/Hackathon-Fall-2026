@@ -431,7 +431,8 @@ export class LanternStore {
 
   setTab = (t: TabId) => {
     this.tab = t
-    for (const p of TABS.find((x) => x.id === t)?.problems ?? []) this.lit.add(p)
+    // During the demo the script lights problems beat by beat, so the strip fills in order.
+    if (!this.demo.active) for (const p of TABS.find((x) => x.id === t)?.problems ?? []) this.lit.add(p)
     this.emit()
   }
 

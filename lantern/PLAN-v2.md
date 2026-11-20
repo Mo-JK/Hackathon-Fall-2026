@@ -2,6 +2,8 @@
 
 Baseline (20 Nov 2026): 17/17 tests pass, typecheck clean, build OK (359 kB JS). Code is on GitHub at `ef855bd`.
 
+**Status (20 Nov 2026): built.** All phases P0-P3 are done: 59 tests pass, and the phone, relay and Sybil paths were checked in a browser. What remains is P4-P5: rehearsal and the backup video (see PITCH.md and DEMO-CHECKLIST.md).
+
 Budget: 20 hours to judging, 4 people. Every phase ends with typecheck + tests + build + a click-through of the demo, then a commit.
 
 ## What the code review found
