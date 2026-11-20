@@ -3,15 +3,21 @@ import type { Snapshot } from '../store'
 import { simClock } from '../hooks'
 import { startDemo, stopDemo } from '../demo'
 
-export function Header({ s }: { s: Snapshot }) {
+export function Logo({ size = 30 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" className="logo">
+      <path d="M32 6c-9 10-14 17-14 25a14 14 0 0 0 28 0c0-8-5-15-14-25z" fill="#ffb347" />
+      <circle cx="32" cy="34" r="6" fill="#fff4d6" />
+    </svg>
+  )
+}
+
+export function Header({ s, onJoin }: { s: Snapshot; onJoin: () => void }) {
   const finished = s.tick >= s.total
   return (
     <header className="top">
       <div className="brand">
-        <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true">
-          <path d="M32 6c-9 10-14 17-14 25a14 14 0 0 0 28 0c0-8-5-15-14-25z" fill="#ffb347" />
-          <circle cx="32" cy="34" r="6" fill="#fff4d6" />
-        </svg>
+        <Logo />
         <div>
           <h1>Lantern</h1>
           <p>The Hollow's shared truth</p>
@@ -50,12 +56,7 @@ export function Header({ s }: { s: Snapshot }) {
       </div>
 
       <div className="switches">
-        <button
-          className={s.uplink ? 'sw on' : 'sw off'}
-          aria-pressed={!s.uplink}
-          onClick={() => store.setUplink(!s.uplink)}
-          title="Simulate the Directorate shutting down the network"
-        >
+        <button className={s.uplink ? 'sw on' : 'sw off'} aria-pressed={!s.uplink} onClick={() => store.setUplink(!s.uplink)} title="Simulate the Directorate shutting down the network">
           {s.uplink ? '● Directorate network: online' : '✖ Directorate network: CUT'}
         </button>
         <button className={s.trustOn ? 'sw on' : 'sw off'} aria-pressed={s.trustOn} onClick={() => store.setTrust(!s.trustOn)} title="Require independent corroboration before the map changes">
@@ -63,9 +64,17 @@ export function Header({ s }: { s: Snapshot }) {
         </button>
       </div>
 
-      <button className="demo" onClick={() => (s.demo.active ? stopDemo() : void startDemo())} disabled={!s.ready}>
-        {s.demo.active ? 'Stop demo' : '▶ Run 3-min demo'}
-      </button>
+      <div className="right-actions">
+        <button onClick={onJoin} title="Show a QR code phones can scan to join the mesh">
+          📱 Join {s.mesh.phones > 0 && <span className="count good-bg">{s.mesh.phones}</span>}
+        </button>
+        <a className="btn" href="#/pitch">
+          Slides
+        </a>
+        <button className="demo" onClick={() => (s.demo.active ? stopDemo() : void startDemo())} disabled={!s.ready}>
+          {s.demo.active ? 'Stop demo' : '▶ Run demo'}
+        </button>
+      </div>
     </header>
   )
 }

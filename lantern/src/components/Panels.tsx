@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { store, normalisePhrase } from '../store'
-import type { Snapshot, TabId } from '../store'
+import type { Snapshot } from '../store'
 import { KIND_INFO } from '../sim/world'
 import { computeAllocation, RESOURCE_LABEL } from '../engine/allocation'
 import { distribute } from '../engine/outbreak'
-import { sha256Hex } from '../mesh/crypto'
+import { NEWCOMER_CAP, VOUCH_BUDGET } from '../engine/reputation'
+import { phraseHash, phraseStrength } from '../mesh/crypto'
 import type { Checkin, Resource } from '../types'
 import { num, pct } from '../hooks'
+import { JoinCard } from './Join'
 
 // ---------- alerts ----------
 export function AlertsPanel({ s }: { s: Snapshot }) {
@@ -65,13 +67,13 @@ export function OutbreakPanel({ s }: { s: Snapshot }) {
           <ul className="plain">
             {s.outbreak.clusters.map((c) => (
               <li key={c.blocks.join()}>
-                <strong>{c.blocks.sort().join(', ')}</strong>: ~{num(c.estCases)} active cases
+                <strong>{[...c.blocks].sort().join(', ')}</strong>: ~{num(c.estCases)} active cases
               </li>
             ))}
           </ul>
           <h3>Suggested supply split</h3>
           <p className="muted small">
-            Stock on hand: {num(STOCK.masks)} masks, {num(STOCK.inhalers)} inhalers, split in proportion to estimated cases.
+            Stock on hand: {num(STOCK.masks)} masks, {num(STOCK.inhalers)} inhalers, split in proportion to estimated cases. The Care tab adds medicine demand from triage.
           </p>
           <table>
             <thead>
@@ -163,23 +165,94 @@ export function SharePanel({ s }: { s: Snapshot }) {
         ))}
       </ul>
       <p className="muted small">
-        <span className="key today" /> today <span className="key fair" /> fair share. Need = people × per-person need × depth hardship × (1 + 25% per confirmed hazard in the block). This is an auditable proposal: neighbourhoods can use it to negotiate and to show who is being left out.
+        <span className="key today" /> today <span className="key fair" /> fair share. Need = people × per-person need × depth hardship × (1 + 25% per confirmed hazard in the block). The same rule splits fans (Heat), lamp hours (Light), food (Food) and lift capacity on the way up. It is an auditable proposal: neighbourhoods can use it to negotiate and to show who is being left out.
       </p>
     </div>
   )
 }
 
 // ---------- mesh ----------
+const STATUS_WORD = { established: 'member', vouched: 'vouched', earned: 'earned trust', newcomer: 'newcomer' } as const
+
 export function MeshPanel({ s }: { s: Snapshot }) {
   const m = s.mesh
+  const relay = m.links.find((l) => l.name === 'relay')
+  const atk = s.attack ? s.views.get(s.attack.blockId) : undefined
+  const ev = atk?.truth.evidence.power
   return (
     <div className="pad">
-      <p className={s.uplink ? 'status on' : 'status off'}>{s.uplink ? 'Directorate network is online. Lantern also runs without it.' : 'Directorate network is CUT. Lantern is still syncing over the mesh.'}</p>
+      <p className={s.uplink ? 'status on' : 'status off'}>{s.uplink ? 'Directorate network is online. Lantern does not depend on it.' : 'Directorate network is CUT. Lantern is still syncing over the mesh.'}</p>
+
+      <div className="links">
+        <span className={relay?.up ? 'link up' : 'link down'}>
+          <i /> Community relay {relay?.up ? 'connected' : 'not reachable'}
+        </span>
+        <span className="link up">
+          <i /> Tab link
+        </span>
+        <span className="muted small">
+          {m.peers} live peer{m.peers === 1 ? '' : 's'}, {m.phones} phone{m.phones === 1 ? '' : 's'}
+        </span>
+      </div>
+      {m.catchUp && m.catchUp.n > 0 && (
+        <p className="catchup">
+          Caught up: {m.catchUp.n} message{m.catchUp.n === 1 ? '' : 's'} arrived when the {m.catchUp.via} link came back.
+        </p>
+      )}
+
+      <JoinCard s={s} />
+
+      <h3>Real devices in the mesh</h3>
+      {!s.realDevices.length ? (
+        <p className="muted small">None yet. Scan the code above with a phone, or open this page with ?phone in another tab.</p>
+      ) : (
+        <ul className="devices">
+          {s.realDevices.slice(0, 8).map((d) => (
+            <li key={d.deviceKey}>
+              <span className="mono">{d.deviceKey.slice(0, 6)}</span>
+              <span className="muted small">{d.phone ? 'phone' : 'device'}</span>
+              <span className={`rep ${d.rep.status}`}>
+                {STATUS_WORD[d.rep.status]} · weight {d.rep.weight.toFixed(2)}
+              </span>
+              {d.rep.status === 'newcomer' && (
+                <button className="small-btn" onClick={() => void store.vouch(d.pub)} title="Only vouch for a device you have checked in person">
+                  Vouch in person
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="muted small">
+        You are a {STATUS_WORD[s.myRep.status]} (weight {s.myRep.weight.toFixed(2)}). Members can vouch for up to {VOUCH_BUDGET} devices each; vouched devices cannot vouch further.
+      </p>
+
+      <h3>Try to fake the map</h3>
+      <div className="row">
+        <button onClick={() => void store.sybilAttack('L2-B2', 50, 2)} disabled={!s.ready || s.tick === 0}>
+          Sybil attack: 50 fake keys
+        </button>
+        <button onClick={() => void store.spamAttack('L2-B2', 100)} disabled={!s.ready || s.tick === 0}>
+          One device, 100 reports
+        </button>
+        <button onClick={() => store.setTrust(!s.trustOn)}>Trust rule: {s.trustOn ? 'on' : 'OFF'}</button>
+      </div>
+      {s.attack && ev && (
+        <div className={`attack ${atk!.status}`}>
+          <strong>
+            {s.attack.reports} fake "power out" reports from {s.attack.keys} key{s.attack.keys === 1 ? '' : 's'} → {s.attack.blockId} is {atk!.status === 'critical' ? 'RED' : 'still healthy'}
+          </strong>
+          <span className="muted small">
+            {s.trustOn
+              ? `Evidence ${ev.weight.toFixed(2)} of 3 needed: ${ev.newcomers} newcomer keys capped at ${NEWCOMER_CAP.toFixed(1)} together, ${ev.trustedWeight.toFixed(2)} from trusted residents, ${ev.sensor ? 'sensor confirms' : 'sensor says power is fine'}.`
+              : `Trust rule off: ${ev.rawReports} raw reports count one each.`}
+          </span>
+        </div>
+      )}
+
       <dl className="stats">
         <dt>Devices in mesh (simulated)</dt>
         <dd>{num(m.devices)}</dd>
-        <dt>Real peers (other tabs)</dt>
-        <dd>{m.peers}</dd>
         <dt>Messages accepted</dt>
         <dd>{num(m.accepted)}</dd>
         <dt>Duplicates dropped</dt>
@@ -195,23 +268,8 @@ export function MeshPanel({ s }: { s: Snapshot }) {
         <dt>Your device id</dt>
         <dd className="mono">{s.me || '...'}</dd>
       </dl>
-
-      <h3>Try to fake the map</h3>
-      <p className="muted small">One device sends 100 signed "power out" reports for healthy block L2-B2. With the trust rule on, the block must stay green.</p>
-      <div className="row">
-        <button onClick={() => void store.spamAttack('L2-B2', 100)} disabled={!s.ready || s.tick === 0}>
-          Launch spam attack
-        </button>
-        <button onClick={() => store.setTrust(!s.trustOn)}>Trust rule: {s.trustOn ? 'on' : 'OFF'}</button>
-        {s.spam && (
-          <span className="muted small">
-            {s.spam.n} fake reports sent to {s.spam.blockId}: status {s.views.get(s.spam.blockId)?.status}
-          </span>
-        )}
-      </div>
-
       <p className="muted small">
-        What is real: signing, verification, dedupe, hop budgets, store-and-forward and the trust rule. What is simulated: the sensors, the other devices and the radio. Open this page in a second tab to see real peer-to-peer gossip of check-ins.
+        Real: signing, verification, dedupe, hop budgets, store-and-forward, anti-entropy sync, the relay, reputation and the trust rule. Simulated: the sensors, the 300 other devices and the radio.
       </p>
     </div>
   )
@@ -227,6 +285,7 @@ export function FamilyPanel({ s }: { s: Snapshot }) {
   const [found, setFound] = useState<Checkin[]>([])
   const [sent, setSent] = useState(false)
   const phrase = s.phrase
+  const strength = phraseStrength(phrase)
 
   useEffect(() => {
     let live = true
@@ -235,21 +294,28 @@ export function FamilyPanel({ s }: { s: Snapshot }) {
       setFound([])
       return
     }
-    void sha256Hex(p).then((h) => live && setFound(s.checkins.filter((c) => c.codeHash === h)))
+    void phraseHash(p).then((h) => live && setFound(s.checkins.filter((c) => c.codeHash === h)))
     return () => {
       live = false
     }
   }, [phrase, s.checkins])
 
+  const other = found.find((c) => !c.mine)
+
   return (
     <div className="pad">
       <p className="muted small">
-        Agree a secret phrase with your family ahead of time. Only a hash of it is shared, together with your block (not your name). Use a long, unusual phrase.
+        Agree a secret phrase with your family ahead of time. Only a stretched hash of it is shared (PBKDF2, 100,000 rounds), together with your block, never your name.
       </p>
       <label className="field">
         Family phrase
         <input value={phrase} onChange={(e) => (setSent(false), store.setPhrase(e.target.value))} placeholder="e.g. blue-heron-7" autoComplete="off" />
       </label>
+      {phrase.trim() && (
+        <p className={`strength ${strength.label}`}>
+          Phrase strength: {strength.label} (~{strength.bits} bits). {strength.label !== 'strong' && 'Longer, unusual phrases are much harder to guess.'}
+        </p>
+      )}
       <label className="field">
         Your block
         <select value={s.homeBlock} onChange={(e) => store.setHome(e.target.value)}>
@@ -261,11 +327,7 @@ export function FamilyPanel({ s }: { s: Snapshot }) {
         </select>
       </label>
       <div className="row">
-        <button
-          className="primary"
-          disabled={!phrase.trim() || !s.ready}
-          onClick={() => void store.checkIn(phrase).then(() => setSent(true))}
-        >
+        <button className="primary" disabled={!phrase.trim() || !s.ready} onClick={() => void store.checkIn(phrase).then(() => setSent(true))}>
           I'm OK
         </button>
         {sent && <span className="muted small">Sent. {s.mesh.pending ? `${s.mesh.pending} waiting for a peer to carry it.` : 'Shared with the mesh.'}</span>}
@@ -280,20 +342,23 @@ export function FamilyPanel({ s }: { s: Snapshot }) {
         <ul className="plain">
           {found.map((c) => (
             <li key={c.id}>
-              <strong>{c.mine ? 'You are' : 'A family member is'}</strong> OK in {s.views.get(c.blockId)?.block.name ?? c.blockId}{' '}
-              <span className="muted small">· {ago(c.wall)}</span>
+              <strong>{c.mine ? 'You are' : 'A family member is'}</strong> OK in {s.views.get(c.blockId)?.block.name ?? c.blockId} <span className="muted small">· {ago(c.wall)}</span>
             </li>
           ))}
         </ul>
       )}
+      {other && (
+        <div className="row">
+          <button
+            onClick={() => {
+              store.setRouteTarget('family')
+              store.setTab('routes')
+            }}
+          >
+            Safe route to them
+          </button>
+        </div>
+      )}
     </div>
   )
 }
-
-export const TABS: { id: TabId; label: string }[] = [
-  { id: 'alerts', label: 'Warnings' },
-  { id: 'outbreak', label: 'Outbreak' },
-  { id: 'share', label: 'Fair share' },
-  { id: 'mesh', label: 'Mesh & trust' },
-  { id: 'family', label: 'Family' },
-]

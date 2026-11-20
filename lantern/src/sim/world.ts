@@ -1,4 +1,8 @@
 import type { Block, Kind, ReportType } from '../types'
+import { gauss, poisson, rngFor } from './rng'
+import { moduleTraffic } from './hollow'
+import type { ModuleTraffic } from './hollow'
+import { wetBulb } from '../modules/heat'
 
 export const LEVELS = 12
 export const BLOCKS_PER_LEVEL = 4
@@ -58,44 +62,12 @@ export function neighborsOf(b: { level: number; index: number }): string[] {
   return out
 }
 
-// ---------- deterministic randomness ----------
-
-export function rngFor(...parts: number[]): () => number {
-  let h = 2166136261
-  for (const p of parts) {
-    h ^= p + 0x9e3779b9
-    h = Math.imul(h, 16777619)
-    h ^= h >>> 15
-  }
-  let a = h >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-function gauss(r: () => number): number {
-  const u = Math.max(r(), 1e-9)
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r())
-}
-
-function poisson(r: () => number, lambda: number): number {
-  const limit = Math.exp(-lambda)
-  let k = 0
-  let p = 1
-  do {
-    k++
-    p *= r()
-  } while (p > limit && k < 60)
-  return k - 1
-}
+export { rngFor } from './rng'
 
 // ---------- scripted events (the "story" of the simulation) ----------
 // Outbreak: Level 10, blocks 1-3. Water: Level 11, blocks 2-3. Blackout: Levels 9-12.
-// Heat and air degrade once the power cut stops fans.
+// Heat and air degrade once the power cut stops fans. A heat wave builds on Level 12 first.
+// Module events (flood on Level 8, farm cut-off on Level 7, SOS calls) live in hollow.ts.
 
 const OUTBREAK_WEIGHTS = [1, 0.8, 0.6, 0]
 const OUTBREAK_PEAK = 1200
@@ -104,7 +76,9 @@ const WATER_ONSET = 38
 export const REPORT_RATE = 0.004 // fraction of active cases that file a report each tick
 
 export const blackoutStart = (level: number) => (level >= 9 ? 62 + (level - 9) * 2 : Infinity)
-const coolingOff = (level: number) => blackoutStart(level) + 14
+export const coolingOff = (level: number) => blackoutStart(level) + 14
+export const HEATWAVE_LEVEL = 12
+export const HEATWAVE_START = 24
 
 export function powerClean(b: Block, t: number): number {
   const base = 98 - (b.level - 1) * 0.5
@@ -115,7 +89,14 @@ export function powerClean(b: Block, t: number): number {
 export function tempClean(b: Block, t: number): number {
   const base = 21 + 1.1 * (b.level - 1)
   const c = coolingOff(b.level)
-  return t > c ? base + 0.45 * (t - c) : base
+  const wave = b.level === HEATWAVE_LEVEL && t > HEATWAVE_START ? Math.min(6, 0.09 * (t - HEATWAVE_START)) : 0
+  return (t > c ? base + 0.45 * (t - c) : base) + wave
+}
+
+/** Deep levels are humid; humidity climbs further once the fans stop. */
+export function rhClean(b: Block, t: number): number {
+  const c = coolingOff(b.level)
+  return Math.min(96, 38 + 3.4 * b.level + (t > c ? Math.min(14, 0.5 * (t - c)) : 0))
 }
 
 export function airClean(b: Block, t: number): number {
@@ -168,6 +149,7 @@ export interface SimTelemetry {
   water: number
   temp: number
   air: number
+  rh: number
 }
 export interface SimReport {
   blockId: string
@@ -186,6 +168,7 @@ export interface SimOutput {
   telemetry: SimTelemetry[]
   reports: SimReport[]
   checkins: SimCheckin[]
+  mod: ModuleTraffic
 }
 
 export const RESIDENT_DEVICES_PER_BLOCK = 5
@@ -210,6 +193,7 @@ export function simulateTick(seed: number, tick: number, blocks: Block[]): SimOu
         water: r1(waterClean(b, tick) + gauss(r) * 8),
         temp: r1(tempClean(b, tick) + gauss(r) * 0.3),
         air: r1(airClean(b, tick) + gauss(r) * 3),
+        rh: Math.round(rhClean(b, tick) + gauss(rngFor(seed, tick, bi, 9)) * 1.5),
       })
     }
     const p = powerClean(b, tick)
@@ -229,5 +213,17 @@ export function simulateTick(seed: number, tick: number, blocks: Block[]): SimOu
   })
 
   if (tick === FAMILY_CHECKIN_TICK) checkins.push({ blockId: FAMILY_BLOCK, phrase: FAMILY_PHRASE, ts: tick })
-  return { tick, telemetry, reports, checkins }
+
+  const symptoms = new Map<string, number>()
+  for (const r of reports) if (r.type === 'symptom') symptoms.set(r.blockId, (symptoms.get(r.blockId) ?? 0) + 1)
+  const mod = moduleTraffic(
+    seed,
+    tick,
+    blocks,
+    symptoms,
+    (b) => powerClean(b, tick) < 50,
+    (b) => wetBulb(tempClean(b, tick), rhClean(b, tick)) >= 31,
+    RESIDENT_DEVICES_PER_BLOCK,
+  )
+  return { tick, telemetry, reports, checkins, mod }
 }

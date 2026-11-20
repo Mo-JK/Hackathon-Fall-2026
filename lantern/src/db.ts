@@ -1,8 +1,8 @@
 import Dexie from 'dexie'
 import type { Table } from 'dexie'
 import type { Msg } from './types'
-import type { Identity } from './mesh/crypto'
-import { identityFromKeys, newIdentity } from './mesh/crypto'
+import type { Identity, StoredIdentity } from './mesh/crypto'
+import { identityFromStored, newIdentity } from './mesh/crypto'
 
 interface Meta {
   key: string
@@ -22,17 +22,29 @@ class LanternDB extends Dexie {
 
 const db = new LanternDB()
 
-/** The device keypair persists across reloads. Falls back to a fresh in-memory key if storage is blocked. */
-export async function loadIdentity(): Promise<Identity> {
+/** v1 stored a bare CryptoKeyPair. */
+function upgrade(v: unknown): StoredIdentity | null {
+  if (!v || typeof v !== 'object') return null
+  if ('kind' in v) return v as StoredIdentity
+  if ('privateKey' in v && 'publicKey' in v) return { kind: 'webcrypto', pair: v as CryptoKeyPair }
+  return null
+}
+
+/**
+ * The device keypair persists across reloads. `slot` keeps a separate key for phone mode so one
+ * laptop can play a laptop and a phone at once. Falls back to an in-memory key if storage is blocked.
+ */
+export async function loadIdentity(slot = 'identity'): Promise<Identity> {
   try {
-    const row = await db.meta.get('identity')
-    if (row) return await identityFromKeys(row.value as CryptoKeyPair)
+    const row = await db.meta.get(slot)
+    const stored = upgrade(row?.value)
+    if (stored) return await identityFromStored(stored)
   } catch {
     /* fall through */
   }
   const id = await newIdentity()
   try {
-    await db.meta.put({ key: 'identity', value: { privateKey: id.privateKey, publicKey: id.publicKey } })
+    await db.meta.put({ key: slot, value: id.stored })
   } catch {
     /* storage unavailable; identity lasts for this session */
   }

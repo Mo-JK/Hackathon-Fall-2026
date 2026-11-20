@@ -1,17 +1,13 @@
 import type { Msg } from '../types'
-import { verifyMsg } from './crypto'
+import { uid, verifyMsg } from './crypto'
+import type { Role, Transport, Wire } from './transport'
 
 export const MAX_HOPS = 16
 
 const PEER_TTL_MS = 25_000
 const HEARTBEAT_MS = 10_000
-
-type Wire =
-  | { t: 'hello'; from: string }
-  | { t: 'bye'; from: string }
-  | { t: 'inv'; from: string; to: string; ids: string[] }
-  | { t: 'want'; from: string; to: string; ids: string[] }
-  | { t: 'msgs'; from: string; to?: string; msgs: Msg[] }
+/** Messages accepted this soon after a link comes back count as "caught up". */
+const CATCH_UP_WINDOW_MS = 4_000
 
 export interface GossipStats {
   accepted: number
@@ -21,29 +17,52 @@ export interface GossipStats {
   relayed: number
 }
 
+export interface PeerInfo {
+  seen: number
+  via: string
+  role?: Role
+  dev?: string
+}
+
+export interface CatchUp {
+  via: string
+  at: number
+  n: number
+}
+
 /**
- * Store-and-forward gossip. Every accepted message is kept in `log`. When a peer appears
- * (another tab/device) we offer an inventory of user messages, the peer asks for what it
- * lacks, and we send it. Messages are signed, deduplicated by id and carry a hop budget.
- * Simulated-swarm traffic stays local; only user-originated messages cross the peer link.
+ * Store-and-forward gossip over any number of transports. Every accepted message is kept in
+ * `log`. When a link (re)connects we say hello; peers answer with an inventory of their user
+ * messages, we ask for what we lack, and they send it (anti-entropy). Messages are signed,
+ * deduplicated by id and carry a hop budget. Simulated-swarm traffic stays local.
  */
 export class GossipNode {
-  readonly nodeId = crypto.randomUUID()
+  readonly nodeId = uid()
   readonly log = new Map<string, Msg>()
-  readonly peers = new Map<string, number>()
+  readonly peers = new Map<string, PeerInfo>()
   stats: GossipStats = { accepted: 0, duplicates: 0, invalid: 0, relayed: 0 }
-  private chan: BroadcastChannel | null = null
+  lastCatchUp: CatchUp | null = null
   private beat: ReturnType<typeof setInterval> | null = null
+  private transports: Transport[] = []
+  private catchUpUntil = 0
 
-  constructor(private onAccept: (m: Msg) => void, private onChange: () => void) {}
+  constructor(
+    private onAccept: (m: Msg) => void,
+    private onChange: () => void,
+    private me: { role: Role; dev: () => string } = { role: 'laptop', dev: () => '' },
+  ) {}
 
-  start() {
-    if (typeof BroadcastChannel === 'undefined' || this.chan) return
-    this.chan = new BroadcastChannel('lantern-mesh')
-    this.chan.onmessage = (e: MessageEvent<Wire>) => void this.onWire(e.data)
-    this.send({ t: 'hello', from: this.nodeId })
+  start(transports: Transport[]) {
+    this.transports = transports
+    for (const t of transports) {
+      t.start(
+        (w) => void this.onWire(w, t.name),
+        () => this.connected(t),
+        () => this.onChange(),
+      )
+    }
     this.beat = setInterval(() => {
-      this.send({ t: 'hello', from: this.nodeId })
+      this.hello()
       this.onChange()
     }, HEARTBEAT_MS)
   }
@@ -51,22 +70,43 @@ export class GossipNode {
   stop() {
     this.send({ t: 'bye', from: this.nodeId })
     if (this.beat) clearInterval(this.beat)
-    this.chan?.close()
-    this.chan = null
+    for (const t of this.transports) t.stop()
+  }
+
+  links(): { name: string; up: boolean }[] {
+    return this.transports.map((t) => ({ name: t.name, up: t.connected() }))
+  }
+
+  private connected(t: Transport) {
+    this.catchUpUntil = Date.now() + CATCH_UP_WINDOW_MS
+    this.lastCatchUp = { via: t.name, at: Date.now(), n: 0 }
+    this.hello()
+    // Offer everything we hold so a peer that missed it while we were apart catches up.
+    const mine = this.userMsgs()
+    if (mine.length) t.send({ t: 'msgs', from: this.nodeId, msgs: mine })
+    this.onChange()
+  }
+
+  private hello() {
+    this.send({ t: 'hello', from: this.nodeId, role: this.me.role, dev: this.me.dev() })
   }
 
   /** Peers heard from recently. */
-  peerCount(): number {
+  peerList(): (PeerInfo & { id: string })[] {
     const cutoff = Date.now() - PEER_TTL_MS
-    for (const [id, seen] of this.peers) if (seen < cutoff) this.peers.delete(id)
-    return this.peers.size
+    for (const [id, p] of this.peers) if (p.seen < cutoff) this.peers.delete(id)
+    return [...this.peers].map(([id, p]) => ({ id, ...p }))
+  }
+
+  peerCount(): number {
+    return this.peerList().length
   }
 
   private send(w: Wire) {
-    this.chan?.postMessage(w)
+    for (const t of this.transports) t.send(w)
   }
 
-  private userMsgs(): Msg[] {
+  userMsgs(): Msg[] {
     return [...this.log.values()].filter((m) => m.origin === 'user')
   }
 
@@ -83,6 +123,7 @@ export class GossipNode {
     if (this.log.has(m.id)) return false // arrived twice while verifying
     this.log.set(m.id, m)
     this.stats.accepted++
+    if (m.origin === 'user' && Date.now() < this.catchUpUntil && this.lastCatchUp) this.lastCatchUp.n++
     this.onAccept(m)
     return true
   }
@@ -96,17 +137,20 @@ export class GossipNode {
     for (const [id, m] of this.log) if (m.origin === 'swarm') this.log.delete(id)
   }
 
-  /** Number of my own user messages no peer has acknowledged yet (queued store-and-forward). */
+  /** Number of my own user messages waiting because no peer is reachable (store-and-forward queue). */
   pendingFor(pub: string): number {
-    return this.peerCount() === 0 ? this.userMsgs().filter((m) => m.pub === pub).length : 0
+    return this.peerCount() === 0 && !this.transports.some((t) => t.name === 'relay' && t.connected())
+      ? this.userMsgs().filter((m) => m.pub === pub).length
+      : 0
   }
 
-  private seen(from: string) {
-    this.peers.set(from, Date.now())
+  private seen(from: string, via: string, extra?: { role?: Role; dev?: string }) {
+    const prev = this.peers.get(from)
+    this.peers.set(from, { seen: Date.now(), via, role: extra?.role ?? prev?.role, dev: extra?.dev || prev?.dev })
     this.onChange()
   }
 
-  private async onWire(w: Wire) {
+  private async onWire(w: Wire, via: string) {
     if (w.from === this.nodeId) return
     if ('to' in w && w.to && w.to !== this.nodeId) return
     if (w.t === 'bye') {
@@ -114,7 +158,7 @@ export class GossipNode {
       this.onChange()
       return
     }
-    this.seen(w.from)
+    if (w.from !== 'relay') this.seen(w.from, via, w.t === 'hello' ? w : undefined)
     switch (w.t) {
       case 'hello': {
         // Replying with our inventory also tells the newcomer we exist.

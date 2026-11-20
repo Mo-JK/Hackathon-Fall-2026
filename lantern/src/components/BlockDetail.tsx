@@ -3,6 +3,7 @@ import type { Snapshot } from '../store'
 import { isBeyond, KIND_INFO, KINDS } from '../sim/world'
 import type { Kind } from '../types'
 import { num } from '../hooks'
+import { TRUST_THRESHOLD } from '../engine/trust'
 
 function Spark({ values, kind }: { values: number[]; kind: Kind }) {
   const pts = values.slice(-40)
@@ -22,15 +23,22 @@ function Spark({ values, kind }: { values: number[]; kind: Kind }) {
 
 export function BlockDetail({ s }: { s: Snapshot }) {
   const v = s.selected ? s.views.get(s.selected) : undefined
-  if (!v) return <section className="detail card"><p className="muted">Select a block on the map to see its sensors, evidence and reports.</p></section>
+  if (!v)
+    return (
+      <section className="detail card">
+        <p className="muted">Select a block on the map to see its sensors, evidence and reports.</p>
+      </section>
+    )
   const b = v.block
   const isHome = b.id === s.homeBlock
+  const heat = s.mod.heat.rows.find((r) => r.blockId === b.id)
   return (
     <section className="detail card" aria-label={`Details for ${b.name}`}>
       <header>
         <h2>{b.name}</h2>
         <span className="muted">
           {num(b.population)} residents · hardship ×{b.hardship} · {b.hasSensor ? 'sensor installed' : 'no sensor: relies on resident reports'}
+          {heat && ` · wet-bulb ${heat.tw.toFixed(1)} °C`}
         </span>
       </header>
       <div className="kinds">
@@ -44,12 +52,12 @@ export function BlockDetail({ s }: { s: Snapshot }) {
               <div className="kname">{info.label}</div>
               <div className="kval">{last === undefined ? 'n/a' : `${last.toFixed(info.digits)}${info.unit}`}</div>
               <Spark values={series} kind={k} />
-              <div className="muted small">
-                {last !== undefined && isBeyond(k, last) ? 'past critical line' : `critical at ${info.critical}${info.unit}`}
-              </div>
-              <div className="muted small">
-                evidence {ev.weight}/3: {ev.sensor ? 'sensor + ' : ''}
-                {ev.humans} resident{ev.humans === 1 ? '' : 's'}
+              <div className="muted small">{last !== undefined && isBeyond(k, last) ? 'past critical line' : `critical at ${info.critical}${info.unit}`}</div>
+              <div className="muted small" title="Evidence needed to change the map">
+                evidence {ev.weight.toFixed(1)}/{TRUST_THRESHOLD}
+                {ev.sensor ? ' · sensor' : ''}
+                {ev.trustedWeight > 0 ? ` · residents ${ev.trustedWeight.toFixed(1)}` : ''}
+                {ev.newcomers > 0 ? ` · ${ev.newcomers} new keys capped ${ev.newcomerWeight.toFixed(1)}` : ''}
               </div>
             </div>
           )
@@ -62,7 +70,7 @@ export function BlockDetail({ s }: { s: Snapshot }) {
         <button onClick={() => store.setHome(b.id)} disabled={isHome}>
           {isHome ? 'This is your block' : 'I live here'}
         </button>
-        <span className="muted small">Report from {store.getSnapshot().homeBlock}:</span>
+        <span className="muted small">Report from {s.homeBlock}:</span>
         <button onClick={() => void store.submitReport('outage')}>Power flickering</button>
         <button onClick={() => void store.submitReport('water_taste')}>Water tastes wrong</button>
         <button onClick={() => void store.submitReport('symptom')}>I have a cough</button>
