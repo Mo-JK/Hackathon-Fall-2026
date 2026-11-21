@@ -69,6 +69,8 @@ export function MapView({ s }: { s: Snapshot }) {
               const here = id === s.homeBlock
               const step = route.indexOf(id)
               const hr = heat.get(id)
+              // Only show the official line where it matters: where Lantern and the Directorate disagree or something is wrong.
+              const showOfficial = v.status !== 'ok' || v.officialStatus !== 'NORMAL'
               return (
                 <button
                   key={id}
@@ -78,13 +80,12 @@ export function MapView({ s }: { s: Snapshot }) {
                   aria-pressed={s.selected === id}
                 >
                   <span className="c1">
-                    <span aria-hidden="true">{GLYPH[v.status]}</span> B{i + 1}
+                    <span aria-hidden="true">{GLYPH[v.status]}</span> B{i + 1} <span className="c2">{WORD[v.status]}</span>
                     {here && <span className="you">you</span>}
                     {step > 0 && <span className="step">{step}</span>}
                     {sos.has(id) && <span className="sos" title="SOS call" />}
                   </span>
-                  <span className="c2">{WORD[v.status]}</span>
-                  <span className="c3">{s.uplink ? `Official: ${v.officialStatus.toLowerCase()}` : 'Official: no signal'}</span>
+                  {showOfficial && <span className="c3">{s.uplink ? `Official: ${v.officialStatus.toLowerCase()}` : 'Official: no signal'}</span>}
                   <span className="c4">
                     {v.truth.flaggedKinds.map((k) => KIND_INFO[k].label.split(' ')[0]).join(' · ')}
                     {hr && hr !== 'ok' && <em className={`hz ${hr}`}>heat</em>}

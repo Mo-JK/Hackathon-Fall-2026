@@ -66,6 +66,8 @@ export type MsgData =
   | { k: 'report'; type: ReportType }
   | { k: 'checkin'; codeHash: string }
   | { k: 'sos'; need: SosNeed }
+  /** "I'm on my way": answers the SOS call(s) from block `to`, so others see it is covered. */
+  | { k: 'respond'; to: string }
   /** An established device vouches, in person, for another device's public key. */
   | { k: 'vouch'; target: string }
   /** Water-level gauge on a tunnel segment ("L8-B1|L8-B2"), depth in cm. */

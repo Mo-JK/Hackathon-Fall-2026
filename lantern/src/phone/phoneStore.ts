@@ -4,7 +4,7 @@ import type { Identity } from '../mesh/crypto'
 import { GossipNode } from '../mesh/gossip'
 import { BroadcastTransport, SocketTransport } from '../mesh/transport'
 import { loadIdentity, saveOutbox } from '../db'
-import { relayBase, normalisePhrase } from '../store'
+import { isStale, relayBase, normalisePhrase } from '../store'
 
 export interface PhoneSnap {
   ready: boolean
@@ -16,6 +16,10 @@ export interface PhoneSnap {
   vouchedBy: string | null
   family: { blockId: string; wall: number }[]
   sosNearby: number
+  /** Real SOS calls from other devices in the last 30 minutes, newest first. */
+  calls: { blockId: string; need: SosNeed; responders: number; mineAnswering: boolean }[]
+  /** People who answered this phone's own latest SOS (null if it sent none). */
+  myResponders: number | null
   crypto: 'webcrypto' | 'noble'
   error: string | null
 }
@@ -102,12 +106,25 @@ class PhoneStore {
     this.emit()
   }
   sos = (need: SosNeed) => this.send({ k: 'sos', need }, `SOS: ${need}`)
+  respond = (blockId: string) => this.send({ k: 'respond', to: blockId }, `On my way to the SOS in ${blockId}`)
   report = (type: ReportType, text: string) => this.send({ k: 'report', type }, text)
   triage = (outcome: TriageOutcome) => this.send({ k: 'triage', outcome }, `Triage: ${outcome}`)
 
   private build(): PhoneSnap {
     const msgs = [...this.node.log.values()]
     const pub = this.me?.pub
+    const live = msgs.filter((m) => !isStale(m))
+    const responses = live.filter((m) => m.data.k === 'respond')
+    const answering = (blockId: string, since: number) => responses.filter((r) => r.data.k === 'respond' && r.data.to === blockId && r.wall >= since)
+    const sosMsgs = live.filter((m) => m.data.k === 'sos').sort((a, b) => b.wall - a.wall)
+    const mySos = sosMsgs.find((m) => m.pub === pub)
+    const calls = sosMsgs
+      .filter((m) => m.pub !== pub)
+      .slice(0, 4)
+      .map((m) => {
+        const who = answering(m.blockId, m.wall)
+        return { blockId: m.blockId, need: (m.data as { need: SosNeed }).need, responders: new Set(who.map((r) => r.pub)).size, mineAnswering: who.some((r) => r.pub === pub) }
+      })
     const vouch = msgs.find((m: Msg) => m.data.k === 'vouch' && m.data.target === pub)
     const family = this.phraseHashValue
       ? msgs.filter((m) => m.data.k === 'checkin' && m.data.codeHash === this.phraseHashValue && m.pub !== pub).map((m) => ({ blockId: m.blockId, wall: m.wall }))
@@ -121,7 +138,9 @@ class PhoneStore {
       sent: this.sent,
       vouchedBy: vouch ? fingerprint(vouch.pub) : null,
       family,
-      sosNearby: msgs.filter((m) => m.data.k === 'sos' && m.pub !== pub).length,
+      sosNearby: calls.length,
+      calls,
+      myResponders: mySos ? new Set(answering(mySos.blockId, mySos.wall).filter((r) => r.pub !== pub).map((r) => r.pub)).size : null,
       crypto: hasWebCrypto ? 'webcrypto' : 'noble',
       error: this.error,
     }

@@ -93,13 +93,14 @@ const STEPS: Step[] = [
   },
   {
     title: 'A tunnel floods; the route changes',
-    caption: 'Sewage backs up on Level 8. Gauges close each segment as it floods and flag the stairs below before they go under. The route from Level 9 to the clinic re-plans live. SOS calls appear on the map.',
+    caption: 'Sewage backs up on Level 8. Gauges close each segment as it floods and flag the stairs below before they go under. The route to the clinic re-plans live. An SOS two blocks away has nobody answering: one tap says "I\'m on my way", tells everyone it is covered, and routes you there.',
     tab: 'routes',
-    seconds: 10,
+    seconds: 12,
     targetTick: 104,
     select: 'L8-B2',
     problems: [5],
     run: () => store.setRouteTarget('clinic'),
+    later: [[9.5, () => store.respondTo('L9-B4')]],
   },
   {
     title: 'Care far from a clinic',
@@ -176,17 +177,24 @@ const STEPS: Step[] = [
 
 export const DEMO_SECONDS = STEPS.reduce((s, x) => s + x.seconds, 0)
 
+/** Each run gets an id; a run stops as soon as a newer run starts or the demo is stopped. */
+let runId = 0
+let current = 0
 let cancelled = false
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export async function startDemo() {
+  const me = ++runId
+  current = me
   cancelled = false
   await store.reset()
+  if (current !== me) return
   store.setSpeed(1)
   store.setDemo({ active: true, step: 0, steps: STEPS.length, title: '', caption: '' })
   store.play()
-  for (let i = 0; i < STEPS.length && !cancelled; i++) {
+  const live = () => !cancelled && current === me
+  for (let i = 0; i < STEPS.length && live(); i++) {
     const s = STEPS[i]
     store.setDemo({ step: i + 1, title: s.title, caption: s.caption })
     store.setTab(s.tab)
@@ -198,16 +206,17 @@ export async function startDemo() {
     const startedAt = Date.now()
     const end = startedAt + s.seconds * 1000
     const pending = [...(s.later ?? [])]
-    while (Date.now() < end && !cancelled) {
+    while (Date.now() < end && live()) {
       while (pending.length && Date.now() - startedAt >= pending[0][0] * 1000) await pending.shift()![1]()
       await sleep(100)
     }
   }
-  stopDemo()
+  if (current === me) stopDemo()
 }
 
 export function stopDemo() {
   cancelled = true
+  current = 0
   store.pause()
   store.setDemo({ active: false, step: 0, title: '', caption: '' })
 }

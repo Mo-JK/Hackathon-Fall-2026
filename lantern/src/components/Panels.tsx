@@ -257,8 +257,12 @@ export function MeshPanel({ s }: { s: Snapshot }) {
         <dd>{num(m.accepted)}</dd>
         <dt>Duplicates dropped</dt>
         <dd>{num(m.duplicates)}</dd>
-        <dt>Bad signatures dropped</dt>
+        <dt>Malformed or badly signed, dropped</dt>
         <dd>{num(m.invalid)}</dd>
+        <dt>Fake sensor readings (unregistered key), dropped</dt>
+        <dd>{num(m.spoofed)}</dd>
+        <dt>Old messages from earlier sessions, not shown as live</dt>
+        <dd>{num(m.stale)}</dd>
         <dt>Relayed to peers</dt>
         <dd>{num(m.relayed)}</dd>
         <dt>Reports ignored by trust rule</dt>

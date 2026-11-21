@@ -23,6 +23,8 @@ import type { ModuleSnapshot, RouteTarget } from './modules/compute'
 import type { ChainCheck, ProbeMsg } from './modules/surface'
 import { verifyChain } from './modules/surface'
 import { TABS } from './modules/registry'
+import { briefing } from './modules/briefing'
+import type { Briefing } from './modules/briefing'
 
 export type TabId = 'alerts' | 'outbreak' | 'heat' | 'surface' | 'share' | 'care' | 'food' | 'space' | 'light' | 'return' | 'mesh' | 'routes' | 'family'
 export type Status = 'ok' | 'warn' | 'critical'
@@ -79,6 +81,10 @@ export interface Snapshot {
     duplicates: number
     invalid: number
     relayed: number
+    /** Sensor-type readings signed by a key that is not a registered sensor (dropped). */
+    spoofed: number
+    /** Real-device messages too old to count as live (kept and forwarded, not shown as current). */
+    stale: number
     devices: number
     pending: number
     messages: number
@@ -98,6 +104,10 @@ export interface Snapshot {
   lit: Set<number>
   /** Recent events from real devices (phones, other tabs), newest first. */
   feed: { id: string; wall: number; text: string }[]
+  /** What the user needs to know and do about their own block right now. */
+  brief: Briefing
+  /** Block whose SOS this device has answered. */
+  helping: string | null
 }
 
 const HOME_KEY = 'lantern.home'
@@ -126,18 +136,34 @@ export function relayBase(): { http: string; ws: string } {
   return { http, ws: `${http.replace(/^http/, 'ws')}/mesh` }
 }
 
-type ModKinds = 'sos' | 'gauge' | 'pulse' | 'triage' | 'space' | 'plot' | 'vouch'
+type ModKinds = 'sos' | 'respond' | 'gauge' | 'pulse' | 'triage' | 'space' | 'plot' | 'vouch'
 type ModRecs = { [K in ModKinds]: RecOf<K>[] }
-const emptyRecs = (): ModRecs => ({ sos: [], gauge: [], pulse: [], triage: [], space: [], plot: [], vouch: [] })
+const emptyRecs = (): ModRecs => ({ sos: [], respond: [], gauge: [], pulse: [], triage: [], space: [], plot: [], vouch: [] })
 
 const ACTIVITY: Partial<Record<MsgKind, string>> = {
   checkin: 'checked in OK',
   sos: 'sent an SOS',
+  respond: 'is answering an SOS',
   report: 'filed a report',
   triage: 'shared a triage outcome',
   pulse: 'sent a wellbeing pulse',
   space: 'posted on the space board',
   vouch: 'vouched for a device',
+}
+
+/** Readings only an installed, registered device may sign. */
+const SENSOR_KINDS = new Set<MsgKind>(['telemetry', 'gauge', 'probe'])
+/**
+ * Real devices don't share the simulated clock, so their messages count as "now" when they
+ * arrive. That is only honest for recent ones: a report or SOS from an earlier session (the relay
+ * keeps everything) must not reappear as a fresh event. Family check-ins stay useful for a day.
+ */
+export const LIVE_MS = 30 * 60_000
+export const CHECKIN_MS = 24 * 60 * 60_000
+const FUTURE_SLACK_MS = 10 * 60_000
+export function isStale(m: Pick<Msg, 'wall' | 'data'>, now = Date.now()): boolean {
+  if (m.wall > now + FUTURE_SLACK_MS) return true
+  return now - m.wall > (m.data.k === 'checkin' ? CHECKIN_MS : LIVE_MS)
 }
 
 export class LanternStore {
@@ -165,7 +191,11 @@ export class LanternStore {
   private attack: AttackInfo | null = null
   private demo = { active: false, step: 0, steps: 0, title: '', caption: '' }
   private routeTarget: RouteTarget = 'clinic'
+  private helping: string | null = null
   private lit = new Set<number>()
+  private sensorKeys = new Set<string>()
+  private spoofed = 0
+  private stale = 0
 
   private telemetry = new Map<string, Telemetry[]>()
   private reports: Report[] = []
@@ -198,6 +228,7 @@ export class LanternStore {
       (m) => this.apply(m),
       () => this.schedule(),
       { role: 'laptop', dev: () => (this.ready ? this.me.deviceKey : '') },
+      (m) => this.acceptable(m),
     )
     this.snap = this.build()
   }
@@ -233,6 +264,7 @@ export class LanternStore {
   private async doInit() {
     this.me = await loadIdentity()
     this.swarm = await Swarm.create(this.blocks)
+    this.sensorKeys = this.swarm.sensorKeys()
     this.established = new Set([...this.swarm.memberKeys(), this.me.deviceKey])
     this.node.start([new BroadcastTransport(), new SocketTransport(relayBase().ws)])
     window.addEventListener('pagehide', () => this.node.stop())
@@ -278,9 +310,23 @@ export class LanternStore {
     }
   }
 
+  /** Local policy, checked before a message is stored or forwarded. */
+  private acceptable(m: Msg): boolean {
+    if (SENSOR_KINDS.has(m.data.k) && !this.sensorKeys.has(m.pub)) {
+      this.spoofed++
+      return false
+    }
+    return true
+  }
+
   private apply(m: Msg) {
     const deviceKey = fingerprint(m.pub)
     const d = m.data
+    if (m.origin === 'user' && isStale(m)) {
+      // Kept in the log (so it still reaches peers that missed it) but not shown as happening now.
+      this.stale++
+      return
+    }
     // Real devices (phones, other tabs) don't share our simulated clock: use arrival time.
     const ts = m.origin === 'user' ? this.tick : m.ts
     this.noteDevice(m, deviceKey, d.k)
@@ -380,10 +426,13 @@ export class LanternStore {
     this.tick = 0
     this.acc = 0
     this.telemetry.clear()
-    this.reports = this.reports.filter((r) => this.realDevices.has(r.deviceKey) || r.deviceKey === this.me?.deviceKey)
+    // Real people's messages survive a restart of the simulated day, re-stamped to its start so
+    // they don't sit in the future and replay when the clock reaches their old tick.
+    this.reports = this.reports.filter((r) => this.realDevices.has(r.deviceKey) || r.deviceKey === this.me?.deviceKey).map((r) => ({ ...r, ts: 0 }))
     this.checkins = this.checkins.filter((c) => !c.virtual)
-    const keep = <T extends Rec>(xs: T[]) => xs.filter((x) => !x.virtual)
-    this.recs = { sos: keep(this.recs.sos), gauge: [], pulse: keep(this.recs.pulse), triage: keep(this.recs.triage), space: keep(this.recs.space), plot: keep(this.recs.plot), vouch: keep(this.recs.vouch) }
+    const keep = <T extends Rec>(xs: T[]) => xs.filter((x) => !x.virtual).map((x) => ({ ...x, ts: 0 }))
+    this.recs = { sos: keep(this.recs.sos), respond: keep(this.recs.respond), gauge: [], pulse: keep(this.recs.pulse), triage: keep(this.recs.triage), space: keep(this.recs.space), plot: keep(this.recs.plot), vouch: keep(this.recs.vouch) }
+    this.helping = null
     this.agree.clear()
     this.node.dropSwarm()
     for (const m of this.probesOriginal) this.node.log.set(m.id, m)
@@ -481,6 +530,14 @@ export class LanternStore {
   sendPulse = (sleep: number, mood: number, light: number) => this.publishUser(this.homeBlock, { k: 'pulse', sleep, mood, light })
   postSpace = (mode: 'offer' | 'request', what: SpaceWhat, slots: number) => this.publishUser(this.homeBlock, { k: 'space', mode, what, slots })
   vouch = (pub: string) => this.publishUser(this.homeBlock, { k: 'vouch', target: pub })
+
+  /** "I'm on my way" to the SOS in `blockId`: tells everyone it is covered and routes me there. */
+  respondTo = async (blockId: string) => {
+    this.helping = blockId
+    this.routeTarget = 'sos'
+    this.emit()
+    await this.publishUser(this.homeBlock, { k: 'respond', to: blockId })
+  }
 
   checkIn = async (phrase: string) => {
     const codeHash = await phraseHash(normalisePhrase(phrase))
@@ -600,9 +657,26 @@ export class LanternStore {
       home: this.homeBlock,
       routeTarget: this.routeTarget,
       familyBlock: family?.blockId ?? null,
+      helping: this.helping,
       probes: this.probes,
       chain: this.chain,
       volunteers: this.volunteers,
+    })
+
+    const brief = briefing({
+      home: this.homeBlock,
+      edges: this.edges,
+      flagged: (id) => views.get(id)?.truth.flaggedKinds ?? [],
+      outbreakFlagged: (id) => !!views.get(id)?.outbreak.flagged,
+      alerts,
+      heat: mod.heat.rows,
+      coolRoute: mod.coolRoute,
+      waterRoute: mod.waterRoute,
+      flood: mod.flood,
+      sos: mod.sos,
+      responders: mod.responders,
+      helping: this.helping,
+      family: family ? { blockId: family.blockId, minutesAgo: Math.max(0, Math.round((Date.now() - family.wall) / 60_000)) } : null,
     })
 
     const peers = this.node.peerList()
@@ -637,6 +711,8 @@ export class LanternStore {
         duplicates: stats.duplicates,
         invalid: stats.invalid,
         relayed: stats.relayed,
+        spoofed: this.spoofed,
+        stale: this.stale,
         devices: this.ready ? this.swarm.deviceCount : 0,
         pending: this.ready ? this.node.pendingFor(this.me.pub) : 0,
         messages: this.node.log.size,
@@ -655,6 +731,8 @@ export class LanternStore {
       tampered: this.tampered,
       lit: new Set(this.lit),
       feed: this.feed,
+      brief,
+      helping: this.helping,
     }
   }
 }

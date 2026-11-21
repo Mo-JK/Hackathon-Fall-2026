@@ -64,7 +64,7 @@ export function BlockDetail({ s }: { s: Snapshot }) {
         })}
       </div>
       <p className="muted small">
-        Symptom reports in the last hour: {v.outbreak.recent} (normal for this block: ~{v.outbreak.expected.toFixed(1)}).
+        Symptom reports in the last hour: {Number(v.outbreak.recent.toFixed(1))} (normal for this block: ~{v.outbreak.expected.toFixed(1)}).
       </p>
       <div className="actions">
         <button onClick={() => store.setHome(b.id)} disabled={isHome}>

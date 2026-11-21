@@ -32,14 +32,14 @@ Open http://localhost:5173 and click **▶ Run demo**.
 | Lantern: install | `npm install` |
 | Lantern: dev (hot reload) | App at http://localhost:5173 for editing |
 | Lantern: demo (build + relay, phones can join) | The real demo at http://localhost:8787 |
-| Lantern: test | 59 tests |
+| Lantern: test | 68 tests |
 | Lantern: check | Typecheck + tests + build (run before pushing) |
 
 ## What's in this repo
 
 | Path | What it is |
 |---|---|
-| `lantern/` | The app: React + Vite + TypeScript PWA, relay, 59 tests |
+| `lantern/` | The app: React + Vite + TypeScript PWA, relay, 68 tests |
 | `lantern/README.md` | How it works, all 15 problems mapped to code, real vs simulated, known limits |
 | `lantern/PITCH.md` | 3-minute script, 10 hard judge questions, rehearsal plan |
 | `lantern/DEMO-CHECKLIST.md` | Hotspot setup, firewall, pre-flight, fallbacks |

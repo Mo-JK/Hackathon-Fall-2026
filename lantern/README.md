@@ -22,11 +22,13 @@ cd lantern
 npm install
 npm run dev        # http://localhost:5173  (editing: hot reload)
 npm run demo       # build + relay on http://localhost:8787  (the real demo, phones can join)
-npm test           # 59 tests
+npm test           # 68 tests
 npm run check      # typecheck + tests + build: run before every push
 ```
 
-- **Run demo** (top right) plays the scripted story in about 2 min 17 s, and the "15 problems" strip fills as it goes.
+- **Run demo** (top right) plays the scripted story in about 2 min 19 s, and the "15 problems" strip fills as it goes.
+- **Your block** (under the two headline cards) joins every engine for one resident: what is confirmed in your block, what is coming and when, the nearest cool refuge or safe water, SOS calls nearby that nobody has answered (one tap: "I'll go"), floods, outbreak, family. Code: `src/modules/briefing.ts`.
+- **Answering an SOS** sends a signed "I'm on my way". The caller's phone shows "Your SOS was heard: N people on the way", and the responder gets a hazard-aware route.
 - **📱 Join** shows a QR code phones can scan to join the mesh (needs `npm run demo`; see [DEMO-CHECKLIST.md](DEMO-CHECKLIST.md)).
 - **Slides** (or `#/pitch`) opens 6 in-app slides. Use the arrow keys.
 - No phone handy? Open `http://localhost:8787/?phone` in a second tab to try phone mode.
@@ -66,6 +68,8 @@ npm run check      # typecheck + tests + build: run before every push
 
 A block changes on the map only when evidence weighs 3: a sensor counts 3, an established resident 1, a vouched device 0.75. **All newcomer keys together count at most 0.5**, so 50 fake keys count as half a stranger. A member can vouch in person for 3 devices; those cannot vouch further; and a member plus everyone they vouched for count at most 1.5 together. Trust can also be earned slowly by agreeing with sensors over many hours. See `src/engine/reputation.ts` and its tests.
 
+The same cap applies to outbreak detection (fake symptom reports can't invent a cluster). **Sensor readings** (telemetry, flood gauges, probes) are only accepted from registered sensor keys, so a phone can't sign "power 0%" and pose as a sensor. Every message is checked for shape and range before use (`src/mesh/validate.ts`), so one malformed but validly signed message can't crash or skew other devices. Messages from real devices older than 30 minutes (24 h for family check-ins) are kept and forwarded but not shown as live, so a rehearsal's SOS doesn't reappear in the real demo.
+
 ## Known limits (say these before a judge does)
 
 - The numbers come from a simulator tuned to tell the story; they are not evidence about a real population.
@@ -73,6 +77,8 @@ A block changes on the map only when evidence weighs 3: a sensor counts 3, an es
 - Device keys are stable pseudonyms. Production would rotate keys per epoch and separate reputation from identity.
 - Family phrases use PBKDF2 with a fixed salt (families must derive the same value without talking), which slows brute force rather than preventing it. Long phrases matter, and the UI says so.
 - Triage is a rule-based checklist, not a diagnosis, and must be reviewed by clinicians before real use.
+- k-anonymity counts distinct keys, and keys are free: someone flooding a block with fake keys could push it over k=5 and expose one real person's triage outcome. Production should count only trusted keys toward k.
+- An SOS answer points at a block, not a specific call: two SOS calls from the same block share their responders.
 - Reporting rates, hardship weights and the option scores are assumptions to calibrate with real clinics, engineers and sensors.
 
 ## Layout

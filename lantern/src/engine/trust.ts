@@ -1,4 +1,4 @@
-import type { Block, Kind, ReportType } from '../types'
+import type { Block, Kind, Report, ReportType } from '../types'
 import { isBeyond, KINDS } from '../sim/world'
 import type { Dataset } from './dataset'
 import { recent } from './dataset'
@@ -40,17 +40,17 @@ export interface BlockTruth {
 
 const round2 = (x: number) => Math.round(x * 100) / 100
 
-export function evidenceFor(ds: Dataset, block: Block): BlockTruth {
+/** `blockReports`: this block's reports, if the caller has already grouped them (saves a full scan per block). */
+export function evidenceFor(ds: Dataset, block: Block, blockReports?: Report[]): BlockTruth {
   const since = ds.now - TRUST_WINDOW + 1
   const latest = recent(ds, block.id, ds.now - 1)
   const evidence = {} as Record<Kind, KindEvidence>
   let rejected = 0
+  const inWindow = (blockReports ?? ds.reports.filter((r) => r.blockId === block.id)).filter((r) => r.ts >= since && r.ts <= ds.now)
 
   for (const kind of KINDS) {
     const sensor = latest.length >= 2 && latest.every((t) => isBeyond(kind, t[kind]))
-    const matching = ds.reports.filter(
-      (r) => r.blockId === block.id && r.ts >= since && r.ts <= ds.now && REPORT_KIND[r.type] === kind,
-    )
+    const matching = inWindow.filter((r) => REPORT_KIND[r.type] === kind)
     const keys = [...new Set(matching.map((r) => r.deviceKey))]
     // Trusted weight is summed per vouch tree, each tree capped, so vouching can't multiply a voice.
     const trees = new Map<string, number>()
@@ -93,23 +93,11 @@ export function evidenceFor(ds: Dataset, block: Block): BlockTruth {
 }
 
 export function computeTruth(ds: Dataset): Map<string, BlockTruth> {
-  return new Map(ds.blocks.map((b) => [b.id, evidenceFor(ds, b)]))
-}
-
-/**
- * Distinct sim-hours in which a key reported a problem that the block's own sensor confirmed.
- * Earning trust this way takes many hours of being right, which is slow and expensive to fake.
- */
-export function agreementHours(ds: Dataset): Map<string, number> {
-  const hours = new Map<string, Set<number>>()
+  const byBlock = new Map<string, Report[]>()
   for (const r of ds.reports) {
-    const kind = REPORT_KIND[r.type]
-    if (!kind) continue
-    const t = (ds.telemetry.get(r.blockId) ?? []).find((x) => x.ts === r.ts)
-    if (!t || !isBeyond(kind, t[kind])) continue
-    const set = hours.get(r.deviceKey) ?? new Set<number>()
-    set.add(Math.floor(r.ts / 6))
-    hours.set(r.deviceKey, set)
+    const list = byBlock.get(r.blockId)
+    if (list) list.push(r)
+    else byBlock.set(r.blockId, [r])
   }
-  return new Map([...hours].map(([k, s]) => [k, s.size]))
+  return new Map(ds.blocks.map((b) => [b.id, evidenceFor(ds, b, byBlock.get(b.id) ?? [])]))
 }

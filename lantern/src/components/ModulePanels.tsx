@@ -225,7 +225,11 @@ export function CarePanel({ s }: { s: Snapshot }) {
         )}
       </div>
       <div className="row">
-        <button onClick={() => void store.sendTriage(result.outcome).then(() => setShared(true))} disabled={!s.ready}>
+        <button
+          onClick={() => void store.sendTriage(result.outcome).then(() => setShared(true))}
+          disabled={!s.ready || shared || !QUESTIONS.slice(0, 6).some(([k]) => sym[k])}
+          title="Tick at least one symptom first"
+        >
           Share outcome only (from {s.homeBlock})
         </button>
         {shared && <span className="muted small">Shared. Your answers stayed on this device.</span>}
@@ -290,7 +294,7 @@ export function FoodPanel({ s }: { s: Snapshot }) {
         {f.cutOff ? `Central farms have cut off Level ${FARM_CUTOFF_LEVEL}.` : `Ledger: ${f.rows.length} blocks logged pantries and grow plots.`}
       </p>
       <h3>Days of food if the farms cut us off</h3>
-      <ul className="bars">
+      <ul className="bars ids">
         {worst.map((r) => (
           <li key={r.blockId}>
             <span className="lbl">{r.blockId}</span>
@@ -408,7 +412,7 @@ export function LightPanel({ s }: { s: Snapshot }) {
         </div>
       </div>
       <h3>Bright light per day, by level (target {LIGHT_TARGET} min)</h3>
-      <ul className="bars">
+      <ul className="bars labelled">
         {l.rows.map((r) => (
           <li key={r.level}>
             <span className="lbl">L{r.level}</span>
@@ -416,13 +420,10 @@ export function LightPanel({ s }: { s: Snapshot }) {
               <span className="muted small">hidden (&lt;{K_ANON} devices)</span>
             ) : (
               <span className="pair">
-                <span className={`bar ${r.light < LIGHT_TARGET ? 'today' : 'fair'}`} style={{ width: `${(r.light / max) * 100}%` }}>
-                  <i>
-                    {Math.round(r.light)} min · sleep {f1(r.sleep)} h · mood {f1(r.mood)}
-                  </i>
-                </span>
+                <span className={`bar ${r.light < LIGHT_TARGET ? 'today' : 'fair'}`} style={{ width: `${(r.light / max) * 100}%` }} />
               </span>
             )}
+            <span className="side">{r.hidden ? '' : `${Math.round(r.light)} min · sleep ${f1(r.sleep)} h · mood ${f1(r.mood)}`}</span>
           </li>
         ))}
       </ul>
@@ -470,7 +471,7 @@ export function ReturnPanel({ s }: { s: Snapshot }) {
         <thead>
           <tr>
             <th>Option</th>
-            <th>Risk</th>
+            <th title="Outside air the occupant breathes, as a share of the unsafe limit">Exposure*</th>
             <th>Holds</th>
             <th>Ready in</th>
             <th>Score</th>
@@ -490,7 +491,9 @@ export function ReturnPanel({ s }: { s: Snapshot }) {
           ))}
         </tbody>
       </table>
-      <p className="muted small">Published weights: 40% safety (from verified probe evidence), 20% capacity, 20% speed, 20% cost. Without verified evidence nothing is viable.</p>
+      <p className="muted small">
+        *Exposure: how much outside air the occupant breathes, as a share of the unsafe AQI limit (100% = breathing air at the limit). Options above 50% are not viable. Published weights: 40% safety (from verified probe evidence), 20% capacity, 20% speed, 20% cost. Without verified evidence nothing is viable.
+      </p>
 
       <h3>First cohort ({c.picks.length} of {c.eligible} consenting volunteers)</h3>
       <ul className="cohort">
@@ -561,7 +564,7 @@ export function RoutesPanel({ s }: { s: Snapshot }) {
     <div className="pad">
       <div className="row">
         <span className="muted small">From {s.homeBlock} to:</span>
-        {TARGETS.map((t) => (
+        {[...TARGETS, ...(s.helping ? [{ id: 'sos' as const, label: `SOS in ${s.helping}` }] : [])].map((t) => (
           <button key={t.id} className={s.routeTarget === t.id ? 'active-btn' : ''} onClick={() => store.setRouteTarget(t.id)}>
             {t.label}
           </button>
@@ -582,7 +585,9 @@ export function RoutesPanel({ s }: { s: Snapshot }) {
           </ol>
         </div>
       ) : (
-        <p className="muted">{r.target === 'family' ? 'No family check-in found yet: enter your phrase on the Family tab.' : 'No safe route found.'}</p>
+        <p className="muted">
+          {r.target === 'family' ? 'No family check-in found yet: enter your phrase on the Family tab.' : r.target === 'sos' && !s.helping ? 'Answer an SOS below to get a route to it.' : 'No safe route found.'}
+        </p>
       )}
       <h3>Tunnel status (flood gauges)</h3>
       <ul className="plain small">
@@ -597,11 +602,23 @@ export function RoutesPanel({ s }: { s: Snapshot }) {
 
       <h3>SOS calls ({s.mod.sos.length})</h3>
       <ul className="plain small">
-        {s.mod.sos.slice(0, 6).map((x) => (
-          <li key={x.id}>
-            <span className="sos-dot" /> {x.blockId}: {x.data.need} {x.virtual ? '' : <span className="tag mask">real device</span>}
-          </li>
-        ))}
+        {s.mod.sos.slice(0, 6).map((x) => {
+          const n = s.mod.responders.get(x.id) ?? 0
+          return (
+            <li key={x.id} className="sos-row">
+              <span className="sos-dot" /> <strong>{x.blockId}</strong>: {x.data.need} {x.virtual ? '' : <span className="tag mask">real device</span>}
+              <span className={n ? 'who' : 'who none'}>· {n ? `${n} on the way` : 'nobody answering yet'}</span>
+              {!x.mine &&
+                (s.helping === x.blockId ? (
+                  <span className="tag mask">you're going</span>
+                ) : (
+                  <button className="small-btn" onClick={() => void store.respondTo(x.blockId)} disabled={!s.ready}>
+                    I'll go
+                  </button>
+                ))}
+            </li>
+          )
+        })}
         {!s.mod.sos.length && <li className="muted">No calls for help.</li>}
       </ul>
       <div className="row">

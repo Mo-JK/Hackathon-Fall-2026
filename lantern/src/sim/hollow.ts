@@ -212,10 +212,27 @@ export const SCRIPTED_SOS: { tick: number; blockId: string; need: SosNeed }[] = 
   { tick: 82, blockId: 'L10-B3', need: 'trapped' },
   { tick: 90, blockId: 'L12-B2', need: 'heat' },
   { tick: 95, blockId: 'L11-B2', need: 'water' },
-  { tick: 101, blockId: 'L9-B4', need: 'medical' },
+  { tick: 96, blockId: 'L9-B4', need: 'medical' },
+]
+
+/** Neighbours who answer an SOS ("I'm on my way"). The medical call on L9-B4 is left unanswered for the demo. */
+export const SCRIPTED_RESPONSES: { tick: number; blockId: string; to: string }[] = [
+  { tick: 85, blockId: 'L10-B2', to: 'L10-B3' },
+  { tick: 88, blockId: 'L9-B3', to: 'L10-B3' },
+  { tick: 93, blockId: 'L11-B2', to: 'L12-B2' },
+  { tick: 99, blockId: 'L11-B1', to: 'L11-B2' },
 ]
 
 export const TICKS_PER_DAY = 144
+
+/** Extra minutes of bright light per level (L3 has a lamp hall, L6 a skylight garden, L8 lost its lamps). */
+const LEVEL_LIGHT_QUIRK = [4, -6, 14, -9, 2, 16, -4, -12, 6, -3, 5, 0]
+
+export interface SimRespond {
+  blockId: string
+  slot: number
+  to: string
+}
 
 export interface ModuleTraffic {
   gauges: SimGauge[]
@@ -224,6 +241,7 @@ export interface ModuleTraffic {
   spaces: SimSpace[]
   plots: SimPlot[]
   sos: SimSos[]
+  responds: SimRespond[]
 }
 
 export function moduleTraffic(
@@ -235,7 +253,7 @@ export function moduleTraffic(
   hot: (b: Block) => boolean,
   slots: number,
 ): ModuleTraffic {
-  const out: ModuleTraffic = { gauges: [], pulses: [], triages: [], spaces: [], plots: [], sos: [] }
+  const out: ModuleTraffic = { gauges: [], pulses: [], triages: [], spaces: [], plots: [], sos: [], responds: [] }
 
   if (tick % 2 === 0) {
     GAUGED_EDGES.forEach((edge, ei) => {
@@ -250,13 +268,15 @@ export function moduleTraffic(
     const isDark = dark(b)
     const isHot = hot(b)
 
+    // Levels are not identical: some have a lamp hall or a garden, some are worse off than depth alone explains.
+    const quirk = LEVEL_LIGHT_QUIRK[b.level - 1] ?? 0
     for (let i = poisson(r, 0.3); i > 0; i--) {
       out.pulses.push({
         blockId: b.id,
         slot: pick(),
-        sleep: round1(clamp(7.4 - 0.12 * b.level - (isDark ? 0.9 : 0) - (isHot ? 0.6 : 0) + gauss(r) * 0.6, 2, 10)),
-        mood: Math.round(clamp(4.3 - 0.13 * b.level - (isDark ? 0.5 : 0) + gauss(r) * 0.6, 1, 5)),
-        light: Math.round(clamp((95 - 7.5 * b.level) * (isDark ? 0.4 : 1) + gauss(r) * 8, 0, 120)),
+        sleep: round1(clamp(7.4 - 0.12 * b.level - (isDark ? 0.9 : 0) - (isHot ? 0.6 : 0) + gauss(r) * 0.8, 2, 10)),
+        mood: Math.round(clamp(4.3 - 0.13 * b.level + quirk / 40 - (isDark ? 0.5 : 0) + gauss(r) * 0.8, 1, 5)),
+        light: Math.round(clamp((95 - 7.5 * b.level + quirk) * (isDark ? 0.4 : 1) + gauss(r) * 14, 0, 120)),
       })
     }
 
@@ -292,6 +312,7 @@ export function moduleTraffic(
   })
 
   for (const s of SCRIPTED_SOS) if (s.tick === tick) out.sos.push({ blockId: s.blockId, slot: 1, need: s.need })
+  for (const r of SCRIPTED_RESPONSES) if (r.tick === tick) out.responds.push({ blockId: r.blockId, slot: 2, to: r.to })
   return out
 }
 

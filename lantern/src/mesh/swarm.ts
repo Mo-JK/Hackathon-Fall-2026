@@ -39,6 +39,15 @@ export class Swarm {
     return [...this.residents.values()].flat().map((i) => i.deviceKey)
   }
 
+  /**
+   * Public keys of installed sensors, flood gauges and surface probes. In the field these are
+   * published when a device is installed and sealed; a reading signed by any other key is not
+   * sensor evidence, however well formed it is.
+   */
+  sensorKeys(): Set<string> {
+    return new Set([...this.sensors.values(), ...this.gauges.values(), ...this.probes.values()].map((i) => i.pub))
+  }
+
   private id(prefix: string) {
     return `${prefix}-${++this.counter}`
   }
@@ -73,6 +82,7 @@ export class Swarm {
     for (const s of m.spaces) send(resident(s.blockId, s.slot), 's', s.blockId, { k: 'space', mode: s.mode, what: s.what, slots: s.slots })
     for (const p of m.plots) send(resident(p.blockId, p.slot), 'f', p.blockId, { k: 'plot', crop: p.crop, kg: p.kg, ready: p.ready })
     for (const s of m.sos) send(resident(s.blockId, s.slot), 'sos', s.blockId, { k: 'sos', need: s.need })
+    for (const r of m.responds) send(resident(r.blockId, r.slot), 'ack', r.blockId, { k: 'respond', to: r.to })
     return Promise.all(jobs)
   }
 

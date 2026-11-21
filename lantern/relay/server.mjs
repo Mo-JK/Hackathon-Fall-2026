@@ -11,7 +11,7 @@
 import http from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { networkInterfaces } from 'node:os'
-import { extname, join, normalize, resolve } from 'node:path'
+import { extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
 
@@ -64,7 +64,7 @@ const server = http.createServer(async (req, res) => {
   }
   try {
     let file = normalize(join(DIST, decodeURIComponent(url.pathname)))
-    if (!file.startsWith(DIST)) throw new Error('outside dist')
+    if (file !== DIST && !file.startsWith(DIST + sep)) throw new Error('outside dist')
     const st = await stat(file).catch(() => null)
     if (!st || st.isDirectory()) file = join(DIST, 'index.html')
     const body = await readFile(file)
@@ -77,7 +77,8 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
-const wss = new WebSocketServer({ server, path: '/mesh' })
+// Real frames are a few kB (a newcomer's catch-up batch is the largest); refuse anything huge.
+const wss = new WebSocketServer({ server, path: '/mesh', maxPayload: 4 * 1024 * 1024 })
 
 wss.on('connection', (ws, req) => {
   const who = req.socket.remoteAddress

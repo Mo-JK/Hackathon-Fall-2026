@@ -87,7 +87,33 @@ export function PhoneApp() {
         <button className="danger-btn big-btn" disabled={!s.ready || busy} onClick={() => run(phone.sos(need))}>
           Send SOS
         </button>
+        {s.myResponders !== null && (
+          <p className={`small ${s.myResponders ? 'good' : 'muted'}`} role="status">
+            {s.myResponders ? `Your SOS was heard: ${s.myResponders} ${s.myResponders === 1 ? 'person is' : 'people are'} on the way.` : 'Your SOS is out. Waiting for someone nearby to answer.'}
+          </p>
+        )}
       </section>
+
+      {s.calls.length > 0 && (
+        <section className="phone-card">
+          <h2>People nearby need help</h2>
+          <ul className="plain small">
+            {s.calls.map((c) => (
+              <li key={c.blockId} className="sos-row">
+                <span className="sos-dot" /> <strong>{c.blockId}</strong>: {c.need}
+                <span className={c.responders ? 'who' : 'who none'}>· {c.responders ? `${c.responders} on the way` : 'nobody yet'}</span>
+                {c.mineAnswering ? (
+                  <span className="tag mask">you're going</span>
+                ) : (
+                  <button className="small-btn" disabled={!s.ready || busy} onClick={() => run(phone.respond(c.blockId))}>
+                    I can help
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="phone-card">
         <h2>Report</h2>

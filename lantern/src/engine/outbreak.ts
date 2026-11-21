@@ -1,5 +1,6 @@
 import { neighborsOf, REPORT_RATE } from '../sim/world'
 import type { Dataset } from './dataset'
+import { isTrusted, NEWCOMER_CAP, repOf } from './reputation'
 
 export const RECENT = 6 // ticks of recent reports compared with baseline
 export const CALIBRATION_TICKS = 18 // quiet period used to learn each block's normal rate
@@ -35,10 +36,21 @@ export function computeOutbreak(ds: Dataset): Outbreak {
     else byBlock.set(r.blockId, [r])
   }
 
-  // With the trust rule on, a device counts at most once per tick.
+  // With the trust rule on, a device counts at most once per tick, and the same reputation rule as
+  // the map applies: a trusted device's report counts 1, while every newcomer report in the window
+  // together counts at most NEWCOMER_CAP. Fifty fresh keys can't fake an outbreak any more than
+  // they can fake a blackout.
   const count = (list: typeof sym, from: number, to: number) => {
     const inRange = list.filter((r) => r.ts >= from && r.ts <= to)
-    return ds.trustOn ? new Set(inRange.map((r) => `${r.deviceKey}:${r.ts}`)).size : inRange.length
+    if (!ds.trustOn) return inRange.length
+    let trusted = 0
+    let newcomer = 0
+    for (const key of new Set(inRange.map((r) => `${r.deviceKey}\u0000${r.ts}`))) {
+      const rep = repOf(ds.rep, key.slice(0, key.indexOf('\u0000')))
+      if (isTrusted(rep)) trusted += 1
+      else newcomer += rep.weight
+    }
+    return trusted + Math.min(NEWCOMER_CAP, newcomer)
   }
 
   const blocks = new Map<string, BlockOutbreak>()

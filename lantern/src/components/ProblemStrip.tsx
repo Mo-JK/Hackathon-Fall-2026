@@ -8,7 +8,7 @@ export function ProblemStrip({ s }: { s: Snapshot }) {
   return (
     <nav className="strip" aria-label="The 15 problems in the brief">
       <span className="strip-label">
-        {s.lit.size}/15 <small>problems answered</small>
+        {s.lit.size}/15 <small>of the brief's problems shown · click a number to jump there</small>
       </span>
       {nums.map((n) => {
         const tab = TABS.find((t) => t.problems.includes(n))

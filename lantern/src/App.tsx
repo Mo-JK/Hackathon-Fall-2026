@@ -5,6 +5,7 @@ import { useSnap } from './hooks'
 import { Header } from './components/Header'
 import { MapView, TruthGap } from './components/MapView'
 import { BlockDetail } from './components/BlockDetail'
+import { YourBlock } from './components/YourBlock'
 import { AlertsPanel, FamilyPanel, MeshPanel, OutbreakPanel, SharePanel } from './components/Panels'
 import { CarePanel, FoodPanel, HeatPanel, LightPanel, ReturnPanel, RoutesPanel, SpacePanel, SurfacePanel } from './components/ModulePanels'
 import { ProblemStrip } from './components/ProblemStrip'
@@ -90,6 +91,7 @@ function Main() {
       <main>
         <div className="left">
           <TruthGap s={s} />
+          <YourBlock s={s} />
           <MapView s={s} />
           <BlockDetail s={s} />
         </div>

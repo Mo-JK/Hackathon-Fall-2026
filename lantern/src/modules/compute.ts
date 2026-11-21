@@ -24,7 +24,7 @@ import { assess, rankCohort, shaftOpen, surfaceOptions } from './surface'
 import type { Plan } from './returnplan'
 import { planReturn } from './returnplan'
 
-export type RouteTarget = 'clinic' | 'water' | 'cool' | 'family'
+export type RouteTarget = 'clinic' | 'water' | 'cool' | 'family' | 'sos'
 
 export interface ModuleInput {
   blocks: Block[]
@@ -34,6 +34,7 @@ export interface ModuleInput {
   truth: Map<string, BlockTruth>
   recs: {
     sos: RecOf<'sos'>[]
+    respond: RecOf<'respond'>[]
     gauge: RecOf<'gauge'>[]
     pulse: RecOf<'pulse'>[]
     triage: RecOf<'triage'>[]
@@ -43,6 +44,8 @@ export interface ModuleInput {
   home: string
   routeTarget: RouteTarget
   familyBlock: string | null
+  /** Block whose SOS this device has answered ("I'm on my way"), if any. */
+  helping: string | null
   probes: ProbeMsg[]
   chain: Map<string, ChainCheck | null>
   volunteers: Volunteer[]
@@ -53,9 +56,14 @@ export interface ModuleSnapshot {
   flood: FloodState
   hazards: Hazards
   route: { target: RouteTarget; to: string[]; route: Route | null }
-  /** Route from home to the nearest clinic, regardless of the selected target (care panel). */
+  /** Routes from home regardless of the selected target (care panel, your-block briefing). */
   clinicRoute: Route | null
+  coolRoute: Route | null
+  waterRoute: Route | null
+  /** Newest SOS per block, newest first. */
   sos: RecOf<'sos'>[]
+  /** Distinct devices that answered each SOS (keyed by SOS record id). */
+  responders: Map<string, number>
   space: { crowd: CrowdRow[]; result: SpaceResult; offers: number; requests: number }
   care: { rows: CareRow[]; demand: { blockId: string; courses: number }[]; hiddenBlocks: number }
   light: { rows: PulseRow[]; corrMood: number; corrLight: number; pulses: number }
@@ -97,13 +105,21 @@ export function computeModules(inp: ModuleInput): ModuleSnapshot {
     water: safeWater,
     cool: refuges.filter((id) => id !== inp.home),
     family: inp.familyBlock ? [inp.familyBlock] : [],
+    sos: inp.helping ? [inp.helping] : [],
   }
   const route = routeTo(edges, inp.home, targets[inp.routeTarget], hazards)
   const clinicRoute = routeTo(edges, inp.home, CLINICS, hazards)
+  const coolRoute = routeTo(edges, inp.home, targets.cool, hazards)
+  const waterRoute = routeTo(edges, inp.home, safeWater, hazards)
 
-  // ---- SOS (7): newest call per block
+  // ---- SOS (7): newest call per block, and who is on the way to it
   const sosByBlock = new Map<string, RecOf<'sos'>>()
   for (const s of inp.recs.sos) if (!sosByBlock.has(s.blockId) || sosByBlock.get(s.blockId)!.ts <= s.ts) sosByBlock.set(s.blockId, s)
+  const responders = new Map<string, number>()
+  for (const s of sosByBlock.values()) {
+    const who = new Set(inp.recs.respond.filter((r) => r.data.to === s.blockId && r.ts >= s.ts).map((r) => r.deviceKey))
+    responders.set(s.id, who.size)
+  }
 
   // ---- space (6)
   const offers = inp.recs.space.filter((s) => s.data.mode === 'offer')
@@ -149,7 +165,10 @@ export function computeModules(inp: ModuleInput): ModuleSnapshot {
     hazards,
     route: { target: inp.routeTarget, to: targets[inp.routeTarget], route },
     clinicRoute,
+    coolRoute,
+    waterRoute,
     sos: [...sosByBlock.values()].sort((a, b) => b.ts - a.ts),
+    responders,
     space,
     care: { rows: careRows, demand: medicineDemand(careRows), hiddenBlocks: careRows.filter((r) => r.hidden).length },
     light: { rows: pulseRows, corrMood: depthCorrelation(pulseRows, 'mood'), corrLight: depthCorrelation(pulseRows, 'light'), pulses: inp.recs.pulse.length },

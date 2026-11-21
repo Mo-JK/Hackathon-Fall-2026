@@ -24,7 +24,8 @@ export interface KindInfo {
 export const KIND_INFO: Record<Kind, KindInfo> = {
   power: { label: 'Power', unit: '%', critical: 50, dir: -1, minSlope: 0.8, digits: 0 },
   water: { label: 'Water TDS', unit: ' ppm', critical: 600, dir: 1, minSlope: 4, digits: 0 },
-  temp: { label: 'Heat', unit: ' °C', critical: 38, dir: 1, minSlope: 0.12, digits: 1 },
+  // 34 °C air at the humidity of the deep levels is already a dangerous wet-bulb (see modules/heat.ts).
+  temp: { label: 'Heat', unit: ' °C', critical: 34, dir: 1, minSlope: 0.08, digits: 1 },
   air: { label: 'Air', unit: ' AQI', critical: 150, dir: 1, minSlope: 1.5, digits: 0 },
 }
 
@@ -86,23 +87,29 @@ export function powerClean(b: Block, t: number): number {
   return t < t0 ? base : Math.max(3, base - 3.3 * (t - t0))
 }
 
+/** Rises quickly at first, then levels off: rock and air absorb heat, so it does not climb forever. */
+const approach = (dt: number, tau: number) => (dt > 0 ? 1 - Math.exp(-dt / tau) : 0)
+
+/**
+ * Air temperature. Deep levels are hotter (geothermal gradient). When the fans stop, a block warms
+ * by up to 5.5 °C over a few hours; the Level 12 heat wave adds up to 5 °C. The result tops out
+ * around 43 °C / 38 °C wet-bulb at the very bottom, which is lethal within hours, not instantly.
+ */
 export function tempClean(b: Block, t: number): number {
   const base = 21 + 1.1 * (b.level - 1)
-  const c = coolingOff(b.level)
-  const wave = b.level === HEATWAVE_LEVEL && t > HEATWAVE_START ? Math.min(6, 0.09 * (t - HEATWAVE_START)) : 0
-  return (t > c ? base + 0.45 * (t - c) : base) + wave
+  const wave = b.level === HEATWAVE_LEVEL ? 5 * approach(t - HEATWAVE_START, 18) : 0
+  return base + 5.5 * approach(t - coolingOff(b.level), 22) + wave
 }
 
-/** Deep levels are humid; humidity climbs further once the fans stop. */
+/** Deep levels are humid; humidity climbs a little more once the fans stop. */
 export function rhClean(b: Block, t: number): number {
-  const c = coolingOff(b.level)
-  return Math.min(96, 38 + 3.4 * b.level + (t > c ? Math.min(14, 0.5 * (t - c)) : 0))
+  return Math.min(95, 30 + 2.8 * b.level + 5 * approach(t - coolingOff(b.level), 22))
 }
 
 export function airClean(b: Block, t: number): number {
   const base = 35 + 4 * b.level
   const c = coolingOff(b.level)
-  return b.level >= 10 && t > c ? base + 3 * (t - c) : base
+  return b.level >= 10 ? base + 150 * approach(t - c, 40) : base
 }
 
 export function waterClean(b: Block, t: number): number {
@@ -216,7 +223,7 @@ export function simulateTick(seed: number, tick: number, blocks: Block[]): SimOu
 
   const symptoms = new Map<string, number>()
   for (const r of reports) if (r.type === 'symptom') symptoms.set(r.blockId, (symptoms.get(r.blockId) ?? 0) + 1)
-  const mod = moduleTraffic(
+  const mod: ModuleTraffic = moduleTraffic(
     seed,
     tick,
     blocks,

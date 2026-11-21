@@ -1,6 +1,7 @@
 import type { Msg } from '../types'
 import { uid, verifyMsg } from './crypto'
 import type { Role, Transport, Wire } from './transport'
+import { validMsg } from './validate'
 
 export const MAX_HOPS = 16
 
@@ -50,6 +51,8 @@ export class GossipNode {
     private onAccept: (m: Msg) => void,
     private onChange: () => void,
     private me: { role: Role; dev: () => string } = { role: 'laptop', dev: () => '' },
+    /** Local policy on top of the structural check, e.g. "sensor readings only from registered sensor keys". */
+    private accept: (m: Msg) => boolean = () => true,
   ) {}
 
   start(transports: Transport[]) {
@@ -110,13 +113,17 @@ export class GossipNode {
     return [...this.log.values()].filter((m) => m.origin === 'user')
   }
 
-  /** Verify, dedupe and store a message. Returns true if it was new and valid. */
+  /** Check, verify, dedupe and store a message. Returns true if it was new and valid. */
   async ingest(m: Msg): Promise<boolean> {
+    if (!validMsg(m)) {
+      this.stats.invalid++
+      return false
+    }
     if (this.log.has(m.id)) {
       this.stats.duplicates++
       return false
     }
-    if (m.hops > MAX_HOPS || m.ttl < 0 || !(await verifyMsg(m))) {
+    if (m.hops > MAX_HOPS || m.ttl < 0 || !this.accept(m) || !(await verifyMsg(m))) {
       this.stats.invalid++
       return false
     }
@@ -124,7 +131,12 @@ export class GossipNode {
     this.log.set(m.id, m)
     this.stats.accepted++
     if (m.origin === 'user' && Date.now() < this.catchUpUntil && this.lastCatchUp) this.lastCatchUp.n++
-    this.onAccept(m)
+    try {
+      this.onAccept(m)
+    } catch (e) {
+      // An application bug must not stop the node from storing and forwarding the message.
+      console.error('[lantern] could not apply message', m.id, e)
+    }
     return true
   }
 
@@ -151,6 +163,10 @@ export class GossipNode {
   }
 
   private async onWire(w: Wire, via: string) {
+    // Frames are untrusted JSON from any device: check their shape before reading them.
+    if (!w || typeof w !== 'object' || typeof w.from !== 'string') return
+    if ((w.t === 'inv' || w.t === 'want') && !(Array.isArray(w.ids) && w.ids.every((id) => typeof id === 'string'))) return
+    if (w.t === 'msgs' && !Array.isArray(w.msgs)) return
     if (w.from === this.nodeId) return
     if ('to' in w && w.to && w.to !== this.nodeId) return
     if (w.t === 'bye') {
@@ -177,6 +193,10 @@ export class GossipNode {
       }
       case 'msgs': {
         for (const raw of w.msgs) {
+          if (!raw || typeof raw !== 'object' || typeof raw.hops !== 'number' || typeof raw.ttl !== 'number') {
+            this.stats.invalid++
+            continue
+          }
           const m: Msg = { ...raw, origin: 'user', hops: raw.hops + 1, ttl: raw.ttl - 1 }
           if ((await this.ingest(m)) && m.ttl > 1) {
             this.stats.relayed++
