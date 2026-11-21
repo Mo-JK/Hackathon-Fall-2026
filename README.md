@@ -30,19 +30,20 @@ Open http://localhost:5173 and click **▶ Run demo**.
 | Task | What it does |
 |---|---|
 | Lantern: install | `npm install` |
-| Lantern: dev (hot reload) | App at http://localhost:5173 for editing |
+| Lantern: dev (hot reload) | App at http://localhost:5173 for editing (tabs only, no phones) |
 | Lantern: demo (build + relay, phones can join) | The real demo at http://localhost:8787 |
-| Lantern: test | 68 tests |
+| Lantern: test | 69 tests |
 | Lantern: check | Typecheck + tests + build (run before pushing) |
 
 ## What's in this repo
 
 | Path | What it is |
 |---|---|
-| `lantern/` | The app: React + Vite + TypeScript PWA, relay, 68 tests |
+| `lantern/` | The app: React + Vite + TypeScript PWA, relay, 69 tests |
 | `lantern/README.md` | How it works, all 15 problems mapped to code, real vs simulated, known limits |
 | `lantern/PITCH.md` | 3-minute script, 10 hard judge questions, rehearsal plan |
 | `lantern/DEMO-CHECKLIST.md` | Hotspot setup, firewall, pre-flight, fallbacks |
+| `lantern/SUBMISSION.md` | 3-minute video shot list, phone overlay, demo URL (GitHub Pages or Netlify) |
 | `lantern/PLAN-v2.md` | The v2 build plan |
 | `lantern-v2-prompt.md` | The prompt that drove the v2 build |
 | `lantern-plan.md`, `hollow-prompt.md` | Original plan and prompt kit |
@@ -67,6 +68,7 @@ Open http://localhost:5173 and click **▶ Run demo**.
 - [ ] `npm run check` green on `main`
 - [ ] Two real phones joined over the hotspot in a full rehearsal
 - [ ] `PITCH.md` rehearsed 3 times, under 3:00
-- [ ] Backup demo video recorded
+- [ ] 3-minute video recorded and under 3:00 (see `lantern/SUBMISSION.md`)
+- [ ] Demo URL live (GitHub Pages workflow or Netlify) and opened on a second computer
 - [ ] Repo switched to **Public** if the judges need a public link
 - [ ] Submission form filled in with the repo link, video and team names

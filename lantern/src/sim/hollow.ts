@@ -49,9 +49,9 @@ export const WATER_POINTS = ['L1-B3', 'L4-B2', 'L8-B4', 'L12-B1']
 export const FLOOD_CLOSED_CM = 30
 /** Sewage backs up on Level 8 and spreads; the stairs down to L9-B2 go last. */
 export const FLOOD_START: Record<string, number> = {
-  'L8-B1|L8-B2': 92,
-  'L8-B2|L8-B3': 96,
-  'L8-B2|L9-B2': 100,
+  'L8-B1|L8-B2': 86,
+  'L8-B2|L8-B3': 90,
+  'L8-B2|L9-B2': 94,
 }
 export const GAUGED_EDGES = ['L8-B1|L8-B2', 'L8-B2|L8-B3', 'L8-B2|L9-B2', 'L8-B3|L9-B3', 'L5-B1|L5-B2']
 

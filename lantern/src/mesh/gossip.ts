@@ -29,6 +29,8 @@ export interface CatchUp {
   via: string
   at: number
   n: number
+  /** False on a link's first connection (joining), true when it comes back after dropping. */
+  reconnect: boolean
 }
 
 /**
@@ -46,6 +48,7 @@ export class GossipNode {
   private beat: ReturnType<typeof setInterval> | null = null
   private transports: Transport[] = []
   private catchUpUntil = 0
+  private connects = new Map<string, number>()
 
   constructor(
     private onAccept: (m: Msg) => void,
@@ -82,7 +85,9 @@ export class GossipNode {
 
   private connected(t: Transport) {
     this.catchUpUntil = Date.now() + CATCH_UP_WINDOW_MS
-    this.lastCatchUp = { via: t.name, at: Date.now(), n: 0 }
+    const count = (this.connects.get(t.name) ?? 0) + 1
+    this.connects.set(t.name, count)
+    this.lastCatchUp = { via: t.name, at: Date.now(), n: 0, reconnect: count > 1 }
     this.hello()
     // Offer everything we hold so a peer that missed it while we were apart catches up.
     const mine = this.userMsgs()

@@ -12,6 +12,8 @@ export interface Hazards {
   closed: Set<string>
   /** Per-block cost multiplier (>= 1). */
   blockCost: Map<string, number>
+  /** Per-segment cost multiplier, e.g. stairs likely to flood next. */
+  edgeCost?: Map<string, number>
 }
 
 export interface Route {
@@ -56,7 +58,7 @@ export function routeTo(edges: Edge[], from: string, targets: string[], hz: Haza
     done.add(u)
     for (const { to, edge } of adj.get(u) ?? []) {
       if (hz.closed.has(edge.id) || done.has(to)) continue
-      const mult = Math.max(hz.blockCost.get(u) ?? 1, hz.blockCost.get(to) ?? 1)
+      const mult = Math.max(hz.blockCost.get(u) ?? 1, hz.blockCost.get(to) ?? 1) * (hz.edgeCost?.get(edge.id) ?? 1)
       const nd = best + edge.length * mult
       if (nd < (dist.get(to) ?? Infinity)) {
         dist.set(to, nd)

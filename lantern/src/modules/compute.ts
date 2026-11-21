@@ -73,6 +73,9 @@ export interface ModuleSnapshot {
   ret: { open: string[]; fair: Plan; upper: Plan; levels: { level: number; people: number; hardship: number }[] }
 }
 
+/** Cost multiplier for a segment flagged at risk of flooding. */
+export const AT_RISK_COST = 4
+
 const levelOf = (id: string) => Number(id.slice(1, id.indexOf('-')))
 
 let assessCache: { key: string; value: Assessment[] } | null = null
@@ -98,7 +101,8 @@ export function computeModules(inp: ModuleInput): ModuleSnapshot {
     else if (h && h.tw >= TW_DANGER) c = Math.max(c, 2)
     blockCost.set(b.id, c)
   }
-  const hazards: Hazards = { closed: flood.closed, blockCost }
+  // Stairs below a flooded segment are likely to go under next: still usable, but a last resort.
+  const hazards: Hazards = { closed: flood.closed, blockCost, edgeCost: new Map([...flood.atRisk].map((e) => [e, AT_RISK_COST])) }
   const safeWater = WATER_POINTS.filter((id) => (inp.latest.get(id)?.water ?? 0) < 450)
   const targets: Record<RouteTarget, string[]> = {
     clinic: CLINICS,

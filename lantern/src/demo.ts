@@ -38,7 +38,7 @@ const STEPS: Step[] = [
   },
   {
     title: 'Warnings before the lights go out',
-    caption: 'Trends in power, water, heat and air fire warnings with minutes to spare, each saying why. Bad water on Level 11 is caught before it crosses the safe line.',
+    caption: 'Trends in power, water, heat and air fire warnings with minutes to spare, each saying why. Bad water on Level 11 was flagged well before it crossed the safe line: the alert shows how far ahead.',
     tab: 'alerts',
     seconds: 12,
     targetTick: 66,
@@ -93,7 +93,7 @@ const STEPS: Step[] = [
   },
   {
     title: 'A tunnel floods; the route changes',
-    caption: 'Sewage backs up on Level 8. Gauges close each segment as it floods and flag the stairs below before they go under. The route to the clinic re-plans live. An SOS two blocks away has nobody answering: one tap says "I\'m on my way", tells everyone it is covered, and routes you there.',
+    caption: 'Sewage backs up on Level 8. Gauges close each segment as it floods and flag the stairs below before they go under. The route to the clinic re-plans around them live. An SOS two blocks away has nobody answering: one tap says "I\'m on my way", tells everyone it is covered, and routes you there.',
     tab: 'routes',
     seconds: 12,
     targetTick: 104,

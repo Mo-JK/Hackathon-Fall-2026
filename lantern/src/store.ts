@@ -1,5 +1,5 @@
 import type { Block, Checkin, Kind, Msg, MsgBody, MsgData, MsgKind, Rec, RecOf, Report, ReportType, SosNeed, SpaceWhat, Telemetry, TriageOutcome } from './types'
-import { isBeyond, makeBlocks, officialBulletin, simulateTick, TOTAL_TICKS } from './sim/world'
+import { isBeyond, makeBlocks, officialBulletin, simulateTick, TOTAL_TICKS, TICK_MINUTES } from './sim/world'
 import type { Official } from './sim/world'
 import { makeEdges, probeHistory, volunteers } from './sim/hollow'
 import type { Dataset } from './engine/dataset'
@@ -17,7 +17,7 @@ import { GossipNode } from './mesh/gossip'
 import type { CatchUp } from './mesh/gossip'
 import { BroadcastTransport, SocketTransport } from './mesh/transport'
 import { Swarm } from './mesh/swarm'
-import { loadIdentity, loadOutbox, saveOutbox } from './db'
+import { clearOutbox, loadIdentity, loadOutbox, saveOutbox } from './db'
 import { computeModules } from './modules/compute'
 import type { ModuleSnapshot, RouteTarget } from './modules/compute'
 import type { ChainCheck, ProbeMsg } from './modules/surface'
@@ -108,6 +108,8 @@ export interface Snapshot {
   brief: Briefing
   /** Block whose SOS this device has answered. */
   helping: string | null
+  /** Minutes of warning each now-critical alert had (key "blockId:kind"). */
+  leads: Map<string, number>
 }
 
 const HOME_KEY = 'lantern.home'
@@ -127,9 +129,15 @@ const readHome = (): string => {
 export const normalisePhrase = (p: string) => p.trim().toLowerCase()
 
 /** Where the community relay lives: same origin when it served this page, else port 8787 on this host. */
-export function relayBase(): { http: string; ws: string } {
+export function relayBase(): { http: string; ws: string } | null {
   const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('relay') : null
   if (q) return { http: q.replace(/^ws/, 'http').replace(/\/mesh$/, ''), ws: q }
+  // A hosted copy (https, e.g. the submission's demo URL) has no relay beside it, and a browser
+  // blocks http/ws calls from an https page. It runs tabs-only; phones join via a laptop relay.
+  if (typeof location !== 'undefined' && location.protocol === 'https:') return null
+  // The dev server (npm run dev) runs without a relay: tabs-only, and no failed-connection noise in
+  // the console. Add ?relay=ws://localhost:8787/mesh to use one while developing.
+  if (import.meta.env.DEV) return null
   const host = typeof location !== 'undefined' && location.hostname ? location.hostname : 'localhost'
   const servedByRelay = typeof location !== 'undefined' && location.port === String(RELAY_PORT)
   const http = servedByRelay ? location.origin : `http://${host}:${RELAY_PORT}`
@@ -158,6 +166,8 @@ const SENSOR_KINDS = new Set<MsgKind>(['telemetry', 'gauge', 'probe'])
  * arrive. That is only honest for recent ones: a report or SOS from an earlier session (the relay
  * keeps everything) must not reappear as a fresh event. Family check-ins stay useful for a day.
  */
+/** How recent a real device's message must be to appear in the LIVE bar. */
+export const LIVE_FEED_MS = 2 * 60_000
 export const LIVE_MS = 30 * 60_000
 export const CHECKIN_MS = 24 * 60 * 60_000
 const FUTURE_SLACK_MS = 10 * 60_000
@@ -192,6 +202,9 @@ export class LanternStore {
   private demo = { active: false, step: 0, steps: 0, title: '', caption: '' }
   private routeTarget: RouteTarget = 'clinic'
   private helping: string | null = null
+  /** Tick each (block, kind) first got a warning, and minutes of warning it had before going critical. */
+  private warnedAt = new Map<string, number>()
+  private leadMin = new Map<string, number>()
   private lit = new Set<number>()
   private sensorKeys = new Set<string>()
   private spoofed = 0
@@ -266,8 +279,11 @@ export class LanternStore {
     this.swarm = await Swarm.create(this.blocks)
     this.sensorKeys = this.swarm.sensorKeys()
     this.established = new Set([...this.swarm.memberKeys(), this.me.deviceKey])
-    this.node.start([new BroadcastTransport(), new SocketTransport(relayBase().ws)])
+    const relay = relayBase()
+    this.node.start(relay ? [new BroadcastTransport(), new SocketTransport(relay.ws)] : [new BroadcastTransport()])
     window.addEventListener('pagehide', () => this.node.stop())
+    // ?fresh: start the demo laptop with no messages from earlier rehearsals.
+    if (new URLSearchParams(location.search).has('fresh')) await clearOutbox()
     for (const m of await loadOutbox()) await this.node.ingest(m)
 
     this.probesOriginal = await this.swarm.probeChain(probeHistory(this.seed), Date.now())
@@ -281,9 +297,11 @@ export class LanternStore {
   }
 
   private async fetchRelayInfo() {
+    const relay = relayBase()
+    if (!relay) return
     for (;;) {
       try {
-        const res = await fetch(`${relayBase().http}/api/info`)
+        const res = await fetch(`${relay.http}/api/info`)
         if (res.ok) {
           const info = (await res.json()) as { urls: string[] }
           this.relayUrls = info.urls
@@ -303,7 +321,9 @@ export class LanternStore {
     const prev = this.realDevices.get(deviceKey)
     this.realDevices.set(deviceKey, { pub: m.pub, lastWall: Math.max(prev?.lastWall ?? 0, m.wall), phone: peerPhone || !!prev?.phone })
     const what = ACTIVITY[kind]
-    if (what) {
+    // The LIVE bar is for things happening now. Older messages (replayed by the relay or a peer's
+    // outbox after a rehearsal) still count where they should, but are not announced as live.
+    if (what && Date.now() - m.wall <= LIVE_FEED_MS) {
       const where = kind === 'vouch' ? '' : ` on ${m.blockId}`
       this.feed.unshift({ id: m.id, wall: Date.now(), text: `${peerPhone ? 'Phone' : 'Device'} ${deviceKey.slice(0, 6)} ${what}${where}` })
       this.feed = this.feed.slice(0, 12)
@@ -434,6 +454,8 @@ export class LanternStore {
     this.recs = { sos: keep(this.recs.sos), respond: keep(this.recs.respond), gauge: [], pulse: keep(this.recs.pulse), triage: keep(this.recs.triage), space: keep(this.recs.space), plot: keep(this.recs.plot), vouch: keep(this.recs.vouch) }
     this.helping = null
     this.agree.clear()
+    this.warnedAt.clear()
+    this.leadMin.clear()
     this.node.dropSwarm()
     for (const m of this.probesOriginal) this.node.log.set(m.id, m)
     this.attack = null
@@ -613,6 +635,14 @@ export class LanternStore {
     const ds: Dataset = { blocks: this.blocks, telemetry: this.telemetry, reports: this.reports, now: this.tick, trustOn: this.trustOn, rep }
     const truth = computeTruth(ds)
     const alerts = computeAlerts(ds, truth)
+    for (const a of alerts) {
+      const key = `${a.blockId}:${a.kind}`
+      if (a.level === 'warning' && !this.warnedAt.has(key)) this.warnedAt.set(key, this.tick)
+      if (a.level === 'critical' && !this.leadMin.has(key)) {
+        const first = this.warnedAt.get(key)
+        this.leadMin.set(key, first === undefined ? 0 : (this.tick - first) * TICK_MINUTES)
+      }
+    }
     const outbreak = computeOutbreak(ds)
     const official = this.frozenOfficial ?? officialBulletin(this.tick, this.blocks)
 
@@ -733,6 +763,7 @@ export class LanternStore {
       feed: this.feed,
       brief,
       helping: this.helping,
+      leads: new Map(this.leadMin),
     }
   }
 }

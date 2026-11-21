@@ -66,3 +66,12 @@ export async function loadOutbox(): Promise<Msg[]> {
     return []
   }
 }
+
+/** Forget this device's saved messages (keeps its key). Used by ?fresh for a clean demo recording. */
+export async function clearOutbox(): Promise<void> {
+  try {
+    await db.outbox.clear()
+  } catch {
+    /* ignore */
+  }
+}

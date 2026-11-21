@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import type { Snapshot } from '../store'
+import { relayBase } from '../store'
 
 /** The address phones should open: the relay's LAN address if it is running, else this page. */
 export function joinUrl(s: Snapshot): string {
   // Opened through a LAN address already? Phones can use the same one.
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
-  const base = !local ? location.origin : (s.relayUrls[0] ?? `${location.origin}${location.pathname}`)
+  const here = `${location.origin}${location.pathname}`
+  const base = !local ? here : (s.relayUrls[0] ?? here)
   return `${base.replace(/\/$/, '')}/?phone`
 }
 
@@ -33,6 +35,10 @@ export function JoinCard({ s, big = false }: { s: Snapshot; big?: boolean }) {
         <p className="mono small">{url}</p>
         {relayUp && s.relayUrls.length ? (
           <p className="muted small">Same Wi-Fi or hotspot as this laptop. No app, no account: your phone makes its own key.</p>
+        ) : !relayBase() ? (
+          <p className="muted small">
+            Hosted copy: open the address above in a second tab of this browser to be a phone in the mesh (tabs talk directly). With real phones, the team runs a laptop relay on a hotspot: see the demo video.
+          </p>
         ) : (
           <p className="muted small">Relay not running, so phones can't reach this laptop yet. Run <code>npm run demo</code> (see DEMO-CHECKLIST.md). Meanwhile, open the address above in another tab to try phone mode here.</p>
         )}

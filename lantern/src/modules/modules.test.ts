@@ -84,9 +84,9 @@ describe('routes and floods (problems 5, 8, 10)', () => {
   })
 
   it('the Level 8 flood closes segments in order and the clinic route from Level 9 re-plans', () => {
-    const before = floodState(simRecs(90).gauge, edges)
+    const before = floodState(simRecs(86).gauge, edges)
     expect(before.closed.size).toBe(0)
-    const after = floodState(simRecs(104).gauge, edges)
+    const after = floodState(simRecs(100).gauge, edges)
     expect(after.closed.has('L8-B1|L8-B2')).toBe(true)
     expect(after.closed.has('L8-B2|L9-B2')).toBe(true)
     const r0 = routeTo(edges, 'L9-B2', CLINICS, { closed: before.closed, blockCost: new Map() })!
@@ -96,9 +96,18 @@ describe('routes and floods (problems 5, 8, 10)', () => {
   })
 
   it('flags the stairs below a flooded segment as at risk before they go under', () => {
-    const mid = floodState(simRecs(98).gauge, edges)
+    const mid = floodState(simRecs(92).gauge, edges)
     expect(mid.closed.has('L8-B1|L8-B2')).toBe(true)
     expect(mid.atRisk.has('L8-B2|L9-B2')).toBe(true)
+    expect(mid.closed.has('L8-B2|L9-B2')).toBe(false)
+  })
+
+  it('re-plans away from stairs that are about to flood, before they close', () => {
+    const mid = floodState(simRecs(92).gauge, edges)
+    const plain = routeTo(edges, 'L9-B2', CLINICS, { closed: mid.closed, blockCost: new Map() })!
+    const careful = routeTo(edges, 'L9-B2', CLINICS, { closed: mid.closed, blockCost: new Map(), edgeCost: new Map([...mid.atRisk].map((e) => [e, 4])) })!
+    expect(plain.path.slice(0, 2)).toEqual(['L9-B2', 'L8-B2'])
+    expect(careful.path.slice(0, 2)).not.toEqual(['L9-B2', 'L8-B2'])
   })
 })
 

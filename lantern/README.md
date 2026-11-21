@@ -20,9 +20,9 @@ Needs Node 20+ (tested on Node 26). In VS Code: open the `Prompt Hackathon Fall 
 ```bash
 cd lantern
 npm install
-npm run dev        # http://localhost:5173  (editing: hot reload)
+npm run dev        # http://localhost:5173  (editing: hot reload, tabs only)
 npm run demo       # build + relay on http://localhost:8787  (the real demo, phones can join)
-npm test           # 68 tests
+npm test           # 69 tests
 npm run check      # typecheck + tests + build: run before every push
 ```
 
@@ -32,6 +32,8 @@ npm run check      # typecheck + tests + build: run before every push
 - **📱 Join** shows a QR code phones can scan to join the mesh (needs `npm run demo`; see [DEMO-CHECKLIST.md](DEMO-CHECKLIST.md)).
 - **Slides** (or `#/pitch`) opens 6 in-app slides. Use the arrow keys.
 - No phone handy? Open `http://localhost:8787/?phone` in a second tab to try phone mode.
+- `?fresh` (e.g. `http://localhost:8787/?fresh`) starts the laptop without messages saved from earlier rehearsals. Use it before recording.
+- The same build also runs from any static host (relative paths). A hosted https copy runs tabs-only: there is no relay beside it, so real phones join through a laptop running `npm run demo`.
 
 ## All 15 problems, mapped to code
 

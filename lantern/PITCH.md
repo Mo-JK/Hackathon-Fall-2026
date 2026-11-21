@@ -1,6 +1,6 @@
 # Lantern: 3-minute pitch and rehearsal kit
 
-Setup before you speak: laptop on its own hotspot, `npm run demo` running, app open full screen, the **📱 Join** QR ready. The in-app demo runs **about 2 min 17 s** across 17 beats. Captions carry the structure; your voice adds the meaning.
+Setup before you speak: laptop on its own hotspot, `npm run demo` running, app open full screen, the **📱 Join** QR ready. The in-app demo runs **about 2 min 19 s** across 17 beats. Open the laptop at `http://localhost:8787/?fresh` so nothing from rehearsal shows as live. Captions carry the structure; your voice adds the meaning.
 
 Quote the numbers on screen, not the ones written here. The demo is deterministic, but read what you see.
 
@@ -22,13 +22,13 @@ Give the room ~10 seconds to scan. Then **back to the app** and click **▶ Run 
 |---|---|
 | 1 Two views | "Left: what the Directorate publishes. Right: what people and sensors report, signed and cross-checked." |
 | 2 Numbers | "The Directorate says about a dozen cases. Lantern estimates hundreds." |
-| 3 Warnings | "Warnings before the lights go out, each one saying why. Bad water caught before anyone drinks it." |
+| 3 Warnings | "Warnings before the lights go out, each one saying why. See this one: bad water on Level 11, *warned 70 minutes ahead*." (point at the green "warned … ahead" tag) |
 | 4 Heat | "Heat plus humidity: where bodies can't cool themselves. Fans go to the most people at most risk." |
 | 5 Network cut | "Now they pull the plug. The feed dies. Your phones are still connected." (point at the LIVE bar if a judge checked in) |
 | 6 Sybil attack | "Their obvious move: flood the map with lies. Fifty fake identities. The block holds. New keys together count as half a stranger." |
 | 7 Rule off | "Turn the rule off and the lie wins. That rule is the product." |
 | 8 Fair share | "Upper levels first leaves the deepest blocks with nothing. We equalise coverage of need. The same rule runs everything that follows." |
-| 9 Flood | "Sewage floods Level 8. Gauges close tunnels, warn about the stairs below, and the route to the clinic re-plans live." |
+| 9 Flood | "Sewage floods Level 8. Gauges close tunnels and flag the stairs below before they go under, so the route to the clinic re-plans around them. And an SOS two blocks away that nobody has answered: one tap, *I'm on my way*, and everyone sees it's covered." |
 | 10–13 Flash | Let the captions run. One line: "Care, space, light, food: every one a small, tested engine on the same truth layer." |
 | 14 Family | "The mother taps I'm OK. Her sister already did. No account, no name: a stretched hash and a block." |
 | 15 Proof of Air | "Forty-one days of signed probe readings. Someone forges one to make the air look deadly. The chain breaks at exactly that entry." |
@@ -46,10 +46,10 @@ Give the room ~10 seconds to scan. Then **back to the app** and click **▶ Run 
 2. **"The Directorate is the adversary. What stops it tracking people?"** Reports carry a block, never a name. Family check-ins share only a PBKDF2-stretched hash, and sensitive totals are hidden until 5 devices contribute. Honest gap: device keys are stable pseudonyms; production rotates them.
 3. **"Your mesh is browser tabs and a laptop. Is it real?"** The judges' phones in this room are real devices with their own keys, talking through a relay that can't forge anything. The radio is the simulated part. BLE, LoRa or Wi-Fi Direct plug in behind the same transport interface, and nothing above it changes.
 4. **"Who enforces your fair share?"** Nobody has to. It's an auditable proposal: "what was given" next to "what a fair rule would give" is evidence for negotiation and for showing neglect.
-5. **"Is any of this real data?"** No, and the footer says so. The claim is that the engines behave correctly, checked by 59 tests, not that the numbers describe a population.
+5. **"Is any of this real data?"** No, and the footer says so. The claim is that the engines behave correctly, checked by 69 tests, not that the numbers describe a population.
 6. **"How does it spread with no internet?"** The app is a web page served from any relay laptop. Scan a QR code and you're in, with no store and no account. Each device carries messages for others.
 7. **"Why would the Directorate allow it?"** It wouldn't have to. Nothing here needs its network, its servers or its permission. The relay is a laptop; the probes sign their own data.
-8. **"Isn't 15 problems too shallow?"** Each is a real engine with tests, on one shared base: the same trust layer, the same fairness rule. The README maps every problem to a file and a test.
+8. **"Isn't 15 problems too shallow?"** Each is a real engine with tests, on one shared base: the same trust layer, the same fairness rule. The README maps every problem to a file and a test, and the *Your block* card joins all of them into plain advice for one resident.
 9. **"Triage is medical advice. Liability?"** It's a checklist that sorts urgency and says plainly it's not a diagnosis. Only the outcome leaves the device. Clinicians must review the rules before real use.
 10. **"What would you build next?"** Real radio transport (LoRa), clinician-reviewed triage rules, key rotation, and calibrating the reporting rates with one real clinic on the lowest level.
 

@@ -1,8 +1,8 @@
 // Offline shell: network first (so a fresh build always wins), cache as the fallback.
-const CACHE = 'lantern-shell-v2'
+const CACHE = 'lantern-shell-v3'
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])))
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icon.svg'])))
   self.skipWaiting()
 })
 
@@ -28,6 +28,6 @@ self.addEventListener('fetch', (e) => {
         }
         return res
       })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match('/'))),
+      .catch(() => caches.match(req).then((hit) => hit || caches.match('./'))),
   )
 })

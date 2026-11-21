@@ -23,6 +23,9 @@ export function AlertsPanel({ s }: { s: Snapshot }) {
             <details open={s.selected === a.blockId}>
               <summary onClick={() => store.select(a.blockId)}>
                 <span className="badge">{a.level === 'critical' ? '✖ NOW' : `▲ in ~${a.etaMinutes} min`}</span>
+                {a.level === 'critical' && (s.leads.get(`${a.blockId}:${a.kind}`) ?? 0) > 0 && (
+                  <span className="lead" title="How long before the line was crossed Lantern first warned">warned {s.leads.get(`${a.blockId}:${a.kind}`)} min ahead</span>
+                )}
                 <strong>
                   {a.blockId} · {info.label}
                 </strong>
@@ -196,7 +199,9 @@ export function MeshPanel({ s }: { s: Snapshot }) {
       </div>
       {m.catchUp && m.catchUp.n > 0 && (
         <p className="catchup">
-          Caught up: {m.catchUp.n} message{m.catchUp.n === 1 ? '' : 's'} arrived when the {m.catchUp.via} link came back.
+          {m.catchUp.reconnect
+            ? `Caught up: ${m.catchUp.n} message${m.catchUp.n === 1 ? '' : 's'} arrived when the ${m.catchUp.via} link came back.`
+            : `Synced ${m.catchUp.n} message${m.catchUp.n === 1 ? '' : 's'} from the mesh on joining.`}
         </p>
       )}
 
@@ -298,7 +303,12 @@ export function FamilyPanel({ s }: { s: Snapshot }) {
       setFound([])
       return
     }
-    void phraseHash(p).then((h) => live && setFound(s.checkins.filter((c) => c.codeHash === h)))
+    // One row per person: their newest check-in (checkins are sorted newest first).
+    void phraseHash(p).then((h) => {
+      if (!live) return
+      const seen = new Set<string>()
+      setFound(s.checkins.filter((c) => c.codeHash === h && !seen.has(c.deviceKey) && !!seen.add(c.deviceKey)))
+    })
     return () => {
       live = false
     }

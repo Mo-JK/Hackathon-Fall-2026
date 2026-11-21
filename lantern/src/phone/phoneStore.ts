@@ -67,7 +67,8 @@ class PhoneStore {
     this.started = true
     try {
       this.me = await loadIdentity('identity-phone')
-      this.node.start([new BroadcastTransport(), new SocketTransport(relayBase().ws)])
+      const relay = relayBase()
+      this.node.start(relay ? [new BroadcastTransport(), new SocketTransport(relay.ws)] : [new BroadcastTransport()])
       window.addEventListener('pagehide', () => this.node.stop())
     } catch (e) {
       this.error = e instanceof Error ? e.message : String(e)

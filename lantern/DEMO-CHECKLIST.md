@@ -3,7 +3,7 @@
 ## The night before
 - [ ] `cd lantern && npm install && npm run check`: all green.
 - [ ] Test with two real phones on the same setup you'll use on stage (below). Do one full run.
-- [ ] Record a backup video of one clean run (Win+Alt+R with Xbox Game Bar, or OBS). Keep it on the desktop.
+- [ ] Record the 3-minute submission video: follow [SUBMISSION.md](SUBMISSION.md) (shot list, phone overlay, demo URL).
 
 ## Network: use the laptop's own hotspot
 Venue Wi-Fi often blocks devices from reaching each other ("client isolation"). Your own hotspot avoids that, and needs no internet.
@@ -17,8 +17,9 @@ Venue Wi-Fi often blocks devices from reaching each other ("client isolation"). 
 4. On your own phone, join the hotspot and scan the QR (**📱 Join** in the app). You should see "relay ✓" on the phone and "1 phone" in the app.
 
 ## Pre-flight (5 minutes before)
-- [ ] `npm run demo` running; laptop on the hotspot; a teammate's phone joined.
-- [ ] Reload the laptop page: 0/15 problems, network online, trust rule on.
+- [ ] Restart the relay (Ctrl+C, then `npm run demo`) so it holds no rehearsal messages.
+- [ ] Open the laptop at `http://localhost:8787/?fresh`: 0/15 problems, no LIVE bar, network online, trust rule on.
+- [ ] Laptop on the hotspot; a teammate's phone joined.
 - [ ] Browser full screen (F11), zoom so the map and right panel are both readable from the back.
 - [ ] Hotspot name and password written on a card for the judges, next to the QR.
 - [ ] Laptop on power, notifications off (Focus assist), sleep disabled.
